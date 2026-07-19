@@ -5,3 +5,4 @@ export default async function PesananPage() {
   const session = await getSession();
   return <PesananClient role={session?.role} />;
 }
+
