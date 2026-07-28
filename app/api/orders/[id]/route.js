@@ -58,6 +58,11 @@ export async function PATCH(request, { params }) {
       updates.status_bayar = dpNum >= (existing?.total || 0) ? 'LUNAS' : 'BELUM LUNAS';
     }
 
+    if (body.pengerja !== undefined) updates.pengerja = body.pengerja;
+    if (body.tanggal_ambil !== undefined) updates.tanggal_ambil = body.tanggal_ambil || null;
+    if (body.progres_pembuatan) updates.progres_pembuatan = body.progres_pembuatan;
+    if (body.notes !== undefined) updates.notes = body.notes;
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Tidak ada perubahan' }, { status: 400 });
     }
