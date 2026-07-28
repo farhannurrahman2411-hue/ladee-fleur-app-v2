@@ -7,21 +7,18 @@ export async function GET(request, { params }) {
   if (!session) {
     return NextResponse.json({ error: 'Belum login' }, { status: 401 });
   }
-
   const supabase = supabaseAdmin();
   const { data, error } = await supabase
     .from('orders')
     .select('*, order_items(*)')
     .eq('id', params.id)
     .maybeSingle();
-
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) {
     return NextResponse.json({ error: 'Pesanan tidak ditemukan' }, { status: 404 });
   }
-
   return NextResponse.json({ order: data });
 }
 
@@ -30,28 +27,24 @@ export async function PATCH(request, { params }) {
   if (!session) {
     return NextResponse.json({ error: 'Belum login' }, { status: 401 });
   }
-
   try {
     const body = await request.json();
     const updates = {};
 
     if (body.status_pesanan) updates.status_pesanan = body.status_pesanan;
+
     if (body.status_bayar) {
       updates.status_bayar = body.status_bayar;
       if (body.status_bayar === 'LUNAS') {
         const supabaseCheck = supabaseAdmin();
-        const { data: existing } = await supabaseCheck.from('orders').select('total').eq('id', params.id).single();
+        const { data: existing } = await supabaseCheck
+          .from('orders')
+          .select('total')
+          .eq('id', params.id)
+          .single();
         updates.dp = existing?.total || 0;
       }
     }
-    if (body.status_bayar) {
-     updates.status_bayar = body.status_bayar;
-     if (body.status_bayar === 'LUNAS') {
-       const supabase = supabaseAdmin();
-       const { data: existing } = await supabase.from('orders').select('total').eq('id', params.id).single();
-       updates.dp = existing?.total || 0;
-     }
-   }
 
     if (body.dp !== undefined) {
       const supabase = supabaseAdmin();
@@ -94,13 +87,10 @@ export async function DELETE(request, { params }) {
   if (!session || session.role !== 'owner') {
     return NextResponse.json({ error: 'Hanya owner yang boleh menghapus' }, { status: 403 });
   }
-
   const supabase = supabaseAdmin();
   const { error } = await supabase.from('orders').delete().eq('id', params.id);
-
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
   return NextResponse.json({ ok: true });
 }
