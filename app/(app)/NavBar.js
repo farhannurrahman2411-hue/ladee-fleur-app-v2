@@ -1,25 +1,20 @@
 'use client';
-
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-
 export default function NavBar({ session }) {
   const pathname = usePathname();
   const router = useRouter();
-
   async function handleLogout() {
     await fetch('/api/logout', { method: 'POST' });
     router.push('/login');
     router.refresh();
   }
-
   const linkClass = (href) =>
     `px-3 py-2 rounded-lg text-sm font-medium ${
       pathname.startsWith(href)
         ? 'bg-fleur-600 text-white'
         : 'text-fleur-700 hover:bg-fleur-100'
     }`;
-
   return (
     <nav className="no-print bg-white border-b sticky top-0 z-10">
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -33,9 +28,9 @@ export default function NavBar({ session }) {
           <Link href="/pesanan" className={linkClass('/pesanan')}>
             Pesanan
           </Link>
-<Link href="/job" className={linkClass('/job')}>
-             Job Karyawan
-           </Link>
+          <Link href="/job" className={linkClass('/job')}>
+            Job Perangkai Bouquet
+          </Link>
           {session.role === 'owner' && (
             <Link href="/rekap" className={linkClass('/rekap')}>
               Rekap Penjualan
