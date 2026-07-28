@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatRupiah, formatTanggal } from '../../../lib/formatters';
 
 const STATUS_PESANAN_OPTIONS = ['Diproses', 'Siap Diambil', 'Sudah Diambil', 'Dibatalkan'];
+const STATUS_BAYAR_OPTIONS = ['BELUM LUNAS', 'LUNAS'];
 
 export default function PesananClient({ role }) {
   const [orders, setOrders] = useState([]);
@@ -35,6 +36,15 @@ export default function PesananClient({ role }) {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status_pesanan }),
+    });
+    loadOrders();
+  }
+
+  async function updateStatusBayar(id, status_bayar) {
+    await fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status_bayar }),
     });
     loadOrders();
   }
@@ -112,15 +122,21 @@ export default function PesananClient({ role }) {
                   <td className="px-3 py-2">{formatRupiah(o.total)}</td>
                   <td className="px-3 py-2">{formatRupiah(o.total - o.dp)}</td>
                   <td className="px-3 py-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    <select
+                      value={o.status_bayar}
+                      onChange={(e) => updateStatusBayar(o.id, e.target.value)}
+                      className={`border rounded px-2 py-1 text-xs font-medium ${
                         o.status_bayar === 'LUNAS'
                           ? 'bg-green-100 text-green-700'
                           : 'bg-yellow-100 text-yellow-700'
                       }`}
                     >
-                      {o.status_bayar}
-                    </span>
+                      {STATUS_BAYAR_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-3 py-2">
                     <select
