@@ -10,10 +10,16 @@ const badgeColor = {
   'Selesai': 'bg-green-100 text-green-700',
 };
 
+function getDefaultMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export default function JobClient() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [month, setMonth] = useState(getDefaultMonth());
 
   useEffect(() => {
     loadOrders();
@@ -47,16 +53,29 @@ export default function JobClient() {
     );
   }
 
+  const filtered = orders.filter((o) => {
+    if (!month) return true;
+    return o.order_date?.slice(0, 7) === month;
+  });
+
   return (
     <div>
-      <h1 className="text-xl font-bold text-fleur-800 mb-4">Job Karyawan</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold text-fleur-800">Job Karyawan</h1>
+        <input
+          type="month"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm"
+        />
+      </div>
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {loading ? (
         <p className="text-gray-500">Memuat...</p>
-      ) : orders.length === 0 ? (
-        <p className="text-gray-500">Belum ada pesanan.</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-gray-500">Belum ada pesanan di bulan ini.</p>
       ) : (
         <div className="bg-white rounded-xl shadow overflow-x-auto">
           <table className="w-full text-sm">
@@ -71,7 +90,7 @@ export default function JobClient() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => (
+              {filtered.map((o) => (
                 <tr key={o.id} className="border-t align-top">
                   <td className="px-3 py-2 font-medium">{o.order_code}</td>
                   <td className="px-3 py-2">
