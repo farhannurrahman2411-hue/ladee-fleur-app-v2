@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formatTanggal } from '../../../lib/formatters';
 
 const PROGRES_OPTIONS = ['Belum Dikerjakan', 'Proses', 'Selesai'];
 
@@ -82,6 +83,8 @@ export default function JobClient() {
             <thead className="bg-fleur-100 text-fleur-800 text-left">
               <tr>
                 <th className="px-3 py-2">No. Pesanan</th>
+                <th className="px-3 py-2">Tanggal Pesan</th>
+                <th className="px-3 py-2">Customer</th>
                 <th className="px-3 py-2">Nama Buket</th>
                 <th className="px-3 py-2">Catatan Custom</th>
                 <th className="px-3 py-2">Pengerja</th>
@@ -93,6 +96,8 @@ export default function JobClient() {
               {filtered.map((o) => (
                 <tr key={o.id} className="border-t align-top">
                   <td className="px-3 py-2 font-medium">{o.order_code}</td>
+                  <td className="px-3 py-2">{formatTanggal(o.order_date)}</td>
+                  <td className="px-3 py-2">{o.customer_name}</td>
                   <td className="px-3 py-2">
                     {(o.order_items || []).map((it) => it.product_name).join(', ')}
                   </td>
