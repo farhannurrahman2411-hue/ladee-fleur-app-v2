@@ -35,7 +35,7 @@ export default function NotaPage({ params }) {
       <div className="bg-white rounded-xl shadow max-w-xl mx-auto p-8 print:shadow-none print:p-0">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-fleur-700 tracking-wide">LADEE FLEUR</h1>
-          <p className="text-sm text-gray-500">Fresh Bouquet & Flower Gift</p>
+          <p className="text-sm text-gray-500">Artificial Flower Bouquet</p>
           <p className="mt-3 font-semibold tracking-widest text-sm">N O T A &nbsp; P E M E S A N A N</p>
         </div>
 
