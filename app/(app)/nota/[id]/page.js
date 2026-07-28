@@ -100,7 +100,7 @@ export default function NotaPage({ params }) {
 
         <div className="text-center text-xs text-gray-500 border-t pt-4">
           <p>Terima kasih telah memesan di Ladee Fleur 🌷</p>
-          <p>Instagram: @ladee.fleur &nbsp;|&nbsp; WhatsApp: 085961089225</p>
+          <p>Instagram: @ladee.fleur &nbsp;|&nbsp; WhatsApp: 085961089225 &nbsp;|&nbsp; TikTok: @ladee.fleur</p>
         </div>
       </div>
     </div>
