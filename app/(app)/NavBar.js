@@ -33,6 +33,9 @@ export default function NavBar({ session }) {
           <Link href="/pesanan" className={linkClass('/pesanan')}>
             Pesanan
           </Link>
+<Link href="/job" className={linkClass('/job')}>
+             Job Karyawan
+           </Link>
           {session.role === 'owner' && (
             <Link href="/rekap" className={linkClass('/rekap')}>
               Rekap Penjualan
