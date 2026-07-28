@@ -36,6 +36,14 @@ export async function PATCH(request, { params }) {
     const updates = {};
 
     if (body.status_pesanan) updates.status_pesanan = body.status_pesanan;
+    if (body.status_bayar) {
+     updates.status_bayar = body.status_bayar;
+     if (body.status_bayar === 'LUNAS') {
+       const supabase = supabaseAdmin();
+       const { data: existing } = await supabase.from('orders').select('total').eq('id', params.id).single();
+       updates.dp = existing?.total || 0;
+     }
+   }
 
     if (body.dp !== undefined) {
       const supabase = supabaseAdmin();
