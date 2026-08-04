@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 function formatRupiah(n) {
   return 'Rp' + Number(n || 0).toLocaleString('id-ID');
 }
+
+const EMPTY_LINK = { label: '', url: '' };
 
 export default function BahanClient() {
   const [materials, setMaterials] = useState([]);
@@ -14,6 +16,10 @@ export default function BahanClient() {
   const [form, setForm] = useState({
     name: '', category: '', price: '', unit: 'pcs', current_stock: '', min_stock: '',
   });
+  const [formLinks, setFormLinks] = useState([{ ...EMPTY_LINK }]);
+
+  const [editingLinksId, setEditingLinksId] = useState(null);
+  const [linkDraft, setLinkDraft] = useState([{ ...EMPTY_LINK }]);
 
   useEffect(() => {
     loadMaterials();
@@ -33,17 +39,35 @@ export default function BahanClient() {
     }
   }
 
+  function addFormLink() {
+    setFormLinks((prev) => [...prev, { ...EMPTY_LINK }]);
+  }
+
+  function removeFormLink(index) {
+    setFormLinks((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateFormLink(index, field, value) {
+    setFormLinks((prev) =>
+      prev.map((l, i) => (i === index ? { ...l, [field]: value } : l))
+    );
+  }
+
   async function handleAddSubmit(e) {
     e.preventDefault();
     try {
+      const cleanLinks = formLinks
+        .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+        .filter((l) => l.url !== '');
       const res = await fetch('/api/materials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, purchase_links: cleanLinks }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setForm({ name: '', category: '', price: '', unit: 'pcs', current_stock: '', min_stock: '' });
+      setFormLinks([{ ...EMPTY_LINK }]);
       setShowForm(false);
       loadMaterials();
     } catch (err) {
@@ -75,6 +99,46 @@ export default function BahanClient() {
       loadMaterials();
     } catch (err) {
       alert('Gagal menghapus bahan: ' + err.message);
+    }
+  }
+
+  function bukaKelolaLink(m) {
+    const existing = Array.isArray(m.purchase_links) && m.purchase_links.length > 0
+      ? m.purchase_links.map((l) => ({ label: l.label || '', url: l.url || '' }))
+      : [{ ...EMPTY_LINK }];
+    setLinkDraft(existing);
+    setEditingLinksId(m.id);
+  }
+
+  function tutupKelolaLink() {
+    setEditingLinksId(null);
+    setLinkDraft([{ ...EMPTY_LINK }]);
+  }
+
+  function addDraftLink() {
+    setLinkDraft((prev) => [...prev, { ...EMPTY_LINK }]);
+  }
+
+  function removeDraftLink(index) {
+    setLinkDraft((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function updateDraftLink(index, field, value) {
+    setLinkDraft((prev) =>
+      prev.map((l, i) => (i === index ? { ...l, [field]: value } : l))
+    );
+  }
+
+  async function simpanKelolaLink(id) {
+    const cleanLinks = linkDraft
+      .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+      .filter((l) => l.url !== '');
+    try {
+      await updateField(id, 'purchase_links', cleanLinks);
+      handleLocalChange(id, 'purchase_links', cleanLinks);
+      tutupKelolaLink();
+    } catch (err) {
+      alert('Gagal menyimpan link');
     }
   }
 
@@ -135,6 +199,47 @@ export default function BahanClient() {
             onChange={(e) => setForm({ ...form, min_stock: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
           />
+
+          <div className="col-span-2 border-t pt-3 mt-1">
+            <p className="text-sm font-medium text-fleur-800 mb-2">Link Beli (opsional, bisa lebih dari satu)</p>
+            <div className="space-y-2">
+              {formLinks.map((link, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Label (misal: Shopee Toko A)"
+                    value={link.label}
+                    onChange={(e) => updateFormLink(idx, 'label', e.target.value)}
+                    className="border rounded-lg px-3 py-2 text-sm w-1/3"
+                  />
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={link.url}
+                    onChange={(e) => updateFormLink(idx, 'url', e.target.value)}
+                    className="border rounded-lg px-3 py-2 text-sm flex-1"
+                  />
+                  {formLinks.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeFormLink(idx)}
+                      className="text-red-600 text-xs font-medium px-2"
+                    >
+                      Hapus
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addFormLink}
+              className="text-fleur-700 text-xs font-medium mt-2 hover:underline"
+            >
+              + Tambah Link
+            </button>
+          </div>
+
           <button
             type="submit"
             className="col-span-2 bg-fleur-600 hover:bg-fleur-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
@@ -161,46 +266,134 @@ export default function BahanClient() {
                 <th className="px-3 py-2">Satuan</th>
                 <th className="px-3 py-2">Stok</th>
                 <th className="px-3 py-2">Stok Min</th>
+                <th className="px-3 py-2">Link Beli</th>
                 <th className="px-3 py-2">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {materials.map((m) => (
-                <tr
-                  key={m.id}
-                  className={`border-t ${
-                    Number(m.current_stock) <= Number(m.min_stock) ? 'bg-red-50' : ''
-                  }`}
-                >
-                  <td className="px-3 py-2 font-medium">{m.name}</td>
-                  <td className="px-3 py-2">{m.category || '-'}</td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      defaultValue={m.price}
-                      onBlur={(e) => updateField(m.id, 'price', Number(e.target.value))}
-                      className="border rounded px-2 py-1 text-xs w-24"
-                    />
-                  </td>
-                  <td className="px-3 py-2">{m.unit}</td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      defaultValue={m.current_stock}
-                      onBlur={(e) => updateField(m.id, 'current_stock', Number(e.target.value))}
-                      className="border rounded px-2 py-1 text-xs w-20"
-                    />
-                  </td>
-                  <td className="px-3 py-2">{m.min_stock}</td>
-                  <td className="px-3 py-2">
-                    <button
-                      onClick={() => hapusBahan(m.id, m.name)}
-                      className="text-red-600 hover:underline text-xs font-medium"
-                    >
-                      Hapus
-                    </button>
-                  </td>
-                </tr>
+                <Fragment key={m.id}>
+                  <tr
+                    className={`border-t ${
+                      Number(m.current_stock) <= Number(m.min_stock) ? 'bg-red-50' : ''
+                    }`}
+                  >
+                    <td className="px-3 py-2 font-medium">{m.name}</td>
+                    <td className="px-3 py-2">{m.category || '-'}</td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        defaultValue={m.price}
+                        onBlur={(e) => updateField(m.id, 'price', Number(e.target.value))}
+                        className="border rounded px-2 py-1 text-xs w-24"
+                      />
+                    </td>
+                    <td className="px-3 py-2">{m.unit}</td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        defaultValue={m.current_stock}
+                        onBlur={(e) => updateField(m.id, 'current_stock', Number(e.target.value))}
+                        className="border rounded px-2 py-1 text-xs w-20"
+                      />
+                    </td>
+                    <td className="px-3 py-2">{m.min_stock}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col gap-1">
+                        {Array.isArray(m.purchase_links) && m.purchase_links.length > 0 ? (
+                          m.purchase_links.map((l, i) => (
+                            
+                              key={i}
+                              href={l.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline text-xs"
+                            >
+                              {l.label || l.url}
+                            </a>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                        <button
+                          onClick={() => bukaKelolaLink(m)}
+                          className="text-fleur-700 hover:underline text-xs font-medium text-left"
+                        >
+                          Kelola Link
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        onClick={() => hapusBahan(m.id, m.name)}
+                        className="text-red-600 hover:underline text-xs font-medium"
+                      >
+                        Hapus
+                      </button>
+                    </td>
+                  </tr>
+                  {editingLinksId === m.id && (
+                    <tr className="border-t bg-fleur-50">
+                      <td colSpan={8} className="px-3 py-3">
+                        <p className="text-sm font-medium text-fleur-800 mb-2">
+                          Kelola Link Beli — {m.name}
+                        </p>
+                        <div className="space-y-2 max-w-2xl">
+                          {linkDraft.map((link, idx) => (
+                            <div key={idx} className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Label (misal: Shopee Toko A)"
+                                value={link.label}
+                                onChange={(e) => updateDraftLink(idx, 'label', e.target.value)}
+                                className="border rounded-lg px-3 py-2 text-sm w-1/3"
+                              />
+                              <input
+                                type="url"
+                                placeholder="https://..."
+                                value={link.url}
+                                onChange={(e) => updateDraftLink(idx, 'url', e.target.value)}
+                                className="border rounded-lg px-3 py-2 text-sm flex-1"
+                              />
+                              {linkDraft.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeDraftLink(idx)}
+                                  className="text-red-600 text-xs font-medium px-2"
+                                >
+                                  Hapus
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3 mt-2">
+                          <button
+                            type="button"
+                            onClick={addDraftLink}
+                            className="text-fleur-700 text-xs font-medium hover:underline"
+                          >
+                            + Tambah Link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => simpanKelolaLink(m.id)}
+                            className="bg-fleur-600 hover:bg-fleur-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium"
+                          >
+                            Simpan Link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={tutupKelolaLink}
+                            className="text-gray-600 text-xs font-medium hover:underline"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
