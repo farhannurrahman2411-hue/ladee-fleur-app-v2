@@ -1,0 +1,211 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+function formatRupiah(n) {
+  return 'Rp' + Number(n || 0).toLocaleString('id-ID');
+}
+
+export default function BahanClient() {
+  const [materials, setMaterials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    name: '', category: '', price: '', unit: 'pcs', current_stock: '', min_stock: '',
+  });
+
+  useEffect(() => {
+    loadMaterials();
+  }, []);
+
+  async function loadMaterials() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/materials');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMaterials(data.materials || []);
+    } catch (err) {
+      setError('Gagal memuat data bahan');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAddSubmit(e) {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setForm({ name: '', category: '', price: '', unit: 'pcs', current_stock: '', min_stock: '' });
+      setShowForm(false);
+      loadMaterials();
+    } catch (err) {
+      alert('Gagal menambah bahan: ' + err.message);
+    }
+  }
+
+  async function updateField(id, field, value) {
+    await fetch(`/api/materials/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: value }),
+    });
+  }
+
+  function handleLocalChange(id, field, value) {
+    setMaterials((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
+    );
+  }
+
+  async function hapusBahan(id, name) {
+    const yakin = window.confirm(`Yakin mau hapus bahan "${name}"?`);
+    if (!yakin) return;
+    try {
+      const res = await fetch(`/api/materials/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      loadMaterials();
+    } catch (err) {
+      alert('Gagal menghapus bahan: ' + err.message);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold text-fleur-800">Database Bahan</h1>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-fleur-600 hover:bg-fleur-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        >
+          {showForm ? 'Tutup Form' : '+ Tambah Bahan'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleAddSubmit} className="bg-white rounded-xl shadow p-4 mb-4 grid grid-cols-2 gap-3">
+          <input
+            type="text"
+            placeholder="Nama bahan"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Kategori (misal: Bunga)"
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            placeholder="Harga per satuan"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            type="text"
+            placeholder="Satuan (pcs, meter, dll)"
+            value={form.unit}
+            onChange={(e) => setForm({ ...form, unit: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            placeholder="Stok saat ini"
+            value={form.current_stock}
+            onChange={(e) => setForm({ ...form, current_stock: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+          <input
+            type="number"
+            placeholder="Stok minimum"
+            value={form.min_stock}
+            onChange={(e) => setForm({ ...form, min_stock: e.target.value })}
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            className="col-span-2 bg-fleur-600 hover:bg-fleur-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+          >
+            Simpan Bahan
+          </button>
+        </form>
+      )}
+
+      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+
+      {loading ? (
+        <p className="text-gray-500">Memuat...</p>
+      ) : materials.length === 0 ? (
+        <p className="text-gray-500">Belum ada bahan.</p>
+      ) : (
+        <div className="bg-white rounded-xl shadow overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-fleur-100 text-fleur-800 text-left">
+              <tr>
+                <th className="px-3 py-2">Nama</th>
+                <th className="px-3 py-2">Kategori</th>
+                <th className="px-3 py-2">Harga</th>
+                <th className="px-3 py-2">Satuan</th>
+                <th className="px-3 py-2">Stok</th>
+                <th className="px-3 py-2">Stok Min</th>
+                <th className="px-3 py-2">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {materials.map((m) => (
+                <tr
+                  key={m.id}
+                  className={`border-t ${
+                    Number(m.current_stock) <= Number(m.min_stock) ? 'bg-red-50' : ''
+                  }`}
+                >
+                  <td className="px-3 py-2 font-medium">{m.name}</td>
+                  <td className="px-3 py-2">{m.category || '-'}</td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number"
+                      defaultValue={m.price}
+                      onBlur={(e) => updateField(m.id, 'price', Number(e.target.value))}
+                      className="border rounded px-2 py-1 text-xs w-24"
+                    />
+                  </td>
+                  <td className="px-3 py-2">{m.unit}</td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number"
+                      defaultValue={m.current_stock}
+                      onBlur={(e) => updateField(m.id, 'current_stock', Number(e.target.value))}
+                      className="border rounded px-2 py-1 text-xs w-20"
+                    />
+                  </td>
+                  <td className="px-3 py-2">{m.min_stock}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      onClick={() => hapusBahan(m.id, m.name)}
+                      className="text-red-600 hover:underline text-xs font-medium"
+                    >
+                      Hapus
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
