@@ -32,6 +32,11 @@ export default function NavBar({ session }) {
             Job Perangkai Bouquet
           </Link>
           {session.role === 'owner' && (
+            <Link href="/bahan" className={linkClass('/bahan')}>
+              Database Bahan
+            </Link>
+          )}
+          {session.role === 'owner' && (
             <Link href="/rekap" className={linkClass('/rekap')}>
               Rekap Penjualan
             </Link>
