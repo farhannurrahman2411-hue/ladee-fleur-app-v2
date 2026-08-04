@@ -25,7 +25,7 @@ export async function POST(request) {
   }
   try {
     const body = await request.json();
-    const { name, category, price, unit, current_stock, min_stock } = body;
+    const { name, category, price, unit, current_stock, min_stock, purchase_links } = body;
     if (!name || !unit) {
       return NextResponse.json({ error: 'Nama dan satuan wajib diisi' }, { status: 400 });
     }
@@ -39,6 +39,7 @@ export async function POST(request) {
         unit,
         current_stock: Number(current_stock) || 0,
         min_stock: Number(min_stock) || 0,
+        purchase_links: Array.isArray(purchase_links) ? purchase_links : [],
       })
       .select()
       .single();
