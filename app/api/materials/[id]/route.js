@@ -16,6 +16,7 @@ export async function PATCH(request, { params }) {
     if (body.unit !== undefined) updates.unit = body.unit;
     if (body.current_stock !== undefined) updates.current_stock = Number(body.current_stock) || 0;
     if (body.min_stock !== undefined) updates.min_stock = Number(body.min_stock) || 0;
+    if (body.purchase_links !== undefined) updates.purchase_links = Array.isArray(body.purchase_links) ? body.purchase_links : [];
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Tidak ada perubahan' }, { status: 400 });
