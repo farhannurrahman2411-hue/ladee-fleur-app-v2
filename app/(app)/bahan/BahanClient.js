@@ -1,12 +1,23 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useState } from 'react';
 
 function formatRupiah(n) {
   return 'Rp' + Number(n || 0).toLocaleString('id-ID');
 }
 
-const EMPTY_LINK = { label: '', url: '' };
+function PurchaseLink(props) {
+  return React.createElement(
+    'a',
+    {
+      href: props.url,
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      className: 'text-blue-600 hover:underline text-xs',
+    },
+    props.label || props.url
+  );
+}
 
 export default function BahanClient() {
   const [materials, setMaterials] = useState([]);
@@ -16,10 +27,10 @@ export default function BahanClient() {
   const [form, setForm] = useState({
     name: '', category: '', price: '', unit: 'pcs', current_stock: '', min_stock: '',
   });
-  const [formLinks, setFormLinks] = useState([{ ...EMPTY_LINK }]);
+  const [formLinks, setFormLinks] = useState([{ label: '', url: '' }]);
 
   const [editingLinksId, setEditingLinksId] = useState(null);
-  const [linkDraft, setLinkDraft] = useState([{ ...EMPTY_LINK }]);
+  const [linkDraft, setLinkDraft] = useState([{ label: '', url: '' }]);
 
   useEffect(() => {
     loadMaterials();
@@ -325,6 +336,7 @@ export default function BahanClient() {
               {materials.map(function (m) {
                 var isLow = Number(m.current_stock) <= Number(m.min_stock);
                 var rowClass = isLow ? 'border-t bg-red-50' : 'border-t';
+                var links = Array.isArray(m.purchase_links) ? m.purchase_links : [];
                 return (
                   <Fragment key={m.id}>
                     <tr className={rowClass}>
@@ -350,19 +362,9 @@ export default function BahanClient() {
                       <td className="px-3 py-2">{m.min_stock}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-col gap-1">
-                          {Array.isArray(m.purchase_links) && m.purchase_links.length > 0 ? (
-                            m.purchase_links.map(function (l, i) {
-                              return (
-                                
-                                  key={i}
-                                  href={l.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:underline text-xs"
-                                >
-                                  {l.label || l.url}
-                                </a>
-                              );
+                          {links.length > 0 ? (
+                            links.map(function (l, i) {
+                              return React.createElement(PurchaseLink, { key: i, url: l.url, label: l.label });
                             })
                           ) : (
                             <span className="text-gray-400 text-xs">-</span>
