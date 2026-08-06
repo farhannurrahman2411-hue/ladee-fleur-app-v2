@@ -4,7 +4,7 @@ import { getSession } from '../../../lib/session';
 
 export async function GET() {
   const session = await getSession();
-  if (!session || session.role !== 'owner') {
+  if (!session) {
     return NextResponse.json({ error: 'Hanya owner yang boleh akses' }, { status: 403 });
   }
   const supabase = supabaseAdmin();
