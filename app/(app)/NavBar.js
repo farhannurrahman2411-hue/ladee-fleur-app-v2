@@ -36,6 +36,11 @@ export default function NavBar({ session }) {
               Database Bahan
             </Link>
           )}
+{session.role === 'owner' && (
+            <Link href="/katalog" className={linkClass('/katalog')}>
+              Katalog Bouquet
+            </Link>
+          )}
           {session.role === 'owner' && (
             <Link href="/rekap" className={linkClass('/rekap')}>
               Rekap Penjualan
