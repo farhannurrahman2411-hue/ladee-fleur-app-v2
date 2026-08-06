@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
   const supabase = supabaseAdmin();
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*, order_items(*, order_item_materials(*, materials(name, unit)))')
     .eq('id', params.id)
     .maybeSingle();
   if (error) {
@@ -29,15 +29,14 @@ export async function PATCH(request, { params }) {
   }
   try {
     const body = await request.json();
+    const supabase = supabaseAdmin();
     const updates = {};
 
     if (body.status_pesanan) updates.status_pesanan = body.status_pesanan;
-
     if (body.status_bayar) {
       updates.status_bayar = body.status_bayar;
       if (body.status_bayar === 'LUNAS') {
-        const supabaseCheck = supabaseAdmin();
-        const { data: existing } = await supabaseCheck
+        const { data: existing } = await supabase
           .from('orders')
           .select('total')
           .eq('id', params.id)
@@ -45,9 +44,7 @@ export async function PATCH(request, { params }) {
         updates.dp = existing?.total || 0;
       }
     }
-
     if (body.dp !== undefined) {
-      const supabase = supabaseAdmin();
       const { data: existing } = await supabase
         .from('orders')
         .select('total')
@@ -57,33 +54,117 @@ export async function PATCH(request, { params }) {
       updates.dp = dpNum;
       updates.status_bayar = dpNum >= (existing?.total || 0) ? 'LUNAS' : 'BELUM LUNAS';
     }
-
     if (body.pengerja !== undefined) updates.pengerja = body.pengerja;
     if (body.tanggal_ambil !== undefined) updates.tanggal_ambil = body.tanggal_ambil || null;
     if (body.progres_pembuatan) updates.progres_pembuatan = body.progres_pembuatan;
     if (body.notes !== undefined) updates.notes = body.notes;
+    if (body.customer_name !== undefined) updates.customer_name = body.customer_name;
+    if (body.order_date !== undefined) updates.order_date = body.order_date;
+
+    if (Array.isArray(body.items)) {
+      if (session.role !== 'owner') {
+        return NextResponse.json({ error: 'Hanya owner yang boleh edit item pesanan' }, { status: 403 });
+      }
+
+      const { data: oldItems } = await supabase
+        .from('order_items')
+        .select('id, order_item_materials(material_id, qty_used)')
+        .eq('order_id', params.id);
+
+      for (const oi of oldItems || []) {
+        for (const mu of oi.order_item_materials || []) {
+          const { data: mat } = await supabase
+            .from('materials')
+            .select('current_stock')
+            .eq('id', mu.material_id)
+            .single();
+          if (mat) {
+            await supabase
+              .from('materials')
+              .update({ current_stock: Number(mat.current_stock) + Number(mu.qty_used) })
+              .eq('id', mu.material_id);
+          }
+        }
+      }
+
+      await supabase.from('order_items').delete().eq('order_id', params.id);
+
+      const cleanItems = body.items
+        .filter((it) => it.product_name && Number(it.qty) > 0)
+        .map((it) => ({
+          product_name: String(it.product_name).trim(),
+          qty: Number(it.qty),
+          price: Number(it.price) || 0,
+          materials_used: Array.isArray(it.materials_used) ? it.materials_used : [],
+        }));
+
+      let newTotal = 0;
+      for (const it of cleanItems) {
+        newTotal += it.qty * it.price;
+        let hpp = 0;
+        const materialRows = [];
+        for (const mu of it.materials_used) {
+          const qtyUsed = Number(mu.qty_used) || 0;
+          const unitPrice = Number(mu.price) || 0;
+          if (qtyUsed <= 0 || !mu.material_id) continue;
+          hpp += qtyUsed * unitPrice;
+          materialRows.push({ material_id: mu.material_id, qty_used: qtyUsed, unit_price: unitPrice });
+        }
+
+        const { data: orderItem, error: itemErr } = await supabase
+          .from('order_items')
+          .insert({
+            order_id: params.id,
+            product_name: it.product_name,
+            qty: it.qty,
+            price: it.price,
+            hpp: hpp * it.qty,
+          })
+          .select()
+          .single();
+        if (itemErr) throw itemErr;
+
+        for (const mr of materialRows) {
+          await supabase.from('order_item_materials').insert({
+            order_item_id: orderItem.id,
+            material_id: mr.material_id,
+            qty_used: mr.qty_used * it.qty,
+            unit_price: mr.unit_price,
+          });
+          const { data: mat } = await supabase
+            .from('materials')
+            .select('current_stock')
+            .eq('id', mr.material_id)
+            .single();
+          if (mat) {
+            await supabase
+              .from('materials')
+              .update({ current_stock: Number(mat.current_stock) - mr.qty_used * it.qty })
+              .eq('id', mr.material_id);
+          }
+        }
+      }
+
+      updates.total = newTotal;
+      const { data: existing } = await supabase.from('orders').select('dp').eq('id', params.id).single();
+      updates.status_bayar = Number(existing?.dp || 0) >= newTotal ? 'LUNAS' : 'BELUM LUNAS';
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Tidak ada perubahan' }, { status: 400 });
     }
 
-    const supabase = supabaseAdmin();
     const { data, error } = await supabase
       .from('orders')
       .update(updates)
       .eq('id', params.id)
       .select()
       .single();
-
     if (error) throw error;
-
     return NextResponse.json({ ok: true, order: data });
   } catch (err) {
     console.error(err);
-    return NextResponse.json(
-      { error: err.message || 'Gagal update pesanan' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message || 'Gagal update pesanan' }, { status: 500 });
   }
 }
 
