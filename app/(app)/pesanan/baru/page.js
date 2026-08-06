@@ -77,18 +77,26 @@ export default function PesananBaruPage() {
     setItems(next);
   }
 
-  function updateMaterialUse(itemIdx, muIdx, field, value) {
+  function patchMaterialUse(itemIdx, muIdx, fields) {
     const next = [...items];
-    const mu = [...next[itemIdx].materials_used];
-    mu[muIdx] = { ...mu[muIdx], [field]: value };
-    next[itemIdx] = { ...next[itemIdx], materials_used: mu };
+    const muList = [...next[itemIdx].materials_used];
+    muList[muIdx] = Object.assign({}, muList[muIdx], fields);
+    next[itemIdx] = Object.assign({}, next[itemIdx], { materials_used: muList });
     setItems(next);
   }
 
+  function handleQueryChange(itemIdx, muIdx, value) {
+    patchMaterialUse(itemIdx, muIdx, { query: value, material_id: '' });
+    setOpenPicker(itemIdx + '-' + muIdx);
+  }
+
   function selectMaterial(itemIdx, muIdx, mat) {
-    updateMaterialUse(itemIdx, muIdx, 'material_id', mat.id);
-    updateMaterialUse(itemIdx, muIdx, 'query', mat.name);
+    patchMaterialUse(itemIdx, muIdx, { material_id: mat.id, query: mat.name });
     setOpenPicker(null);
+  }
+
+  function handleQtyChange(itemIdx, muIdx, value) {
+    patchMaterialUse(itemIdx, muIdx, { qty_used: value });
   }
 
   async function handleSubmit(e) {
@@ -216,24 +224,24 @@ export default function PesananBaruPage() {
                     const filtered = q
                       ? materials.filter((m) => m.name.toLowerCase().includes(q))
                       : materials;
+                    const showDropdown = openPicker === pickerKey && filtered.length > 0;
                     return (
-                      <div key={muIdx} className="flex gap-2 items-start mb-1 relative">
-                        <div className="flex-1 relative">
+                      <div key={muIdx} className="flex gap-2 items-start mb-1">
+                        <div className="flex-1" style={{ position: 'relative' }}>
                           <input
                             type="text"
                             placeholder="Ketik nama bahan..."
                             value={mu.query}
-                            onChange={(e) => {
-                              updateMaterialUse(idx, muIdx, 'query', e.target.value);
-                              updateMaterialUse(idx, muIdx, 'material_id', '');
-                              setOpenPicker(pickerKey);
-                            }}
+                            onChange={(e) => handleQueryChange(idx, muIdx, e.target.value)}
                             onFocus={() => setOpenPicker(pickerKey)}
-                            onBlur={() => setTimeout(() => setOpenPicker(null), 150)}
+                            onBlur={() => setTimeout(() => setOpenPicker(null), 200)}
                             className="w-full border rounded px-2 py-1 text-xs"
                           />
-                          {openPicker === pickerKey && filtered.length > 0 && (
-                            <div className="absolute z-10 top-full left-0 right-0 bg-white border rounded shadow max-h-40 overflow-y-auto">
+                          {showDropdown && (
+                            <div
+                              style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20 }}
+                              className="bg-white border rounded shadow max-h-40 overflow-y-auto"
+                            >
                               {filtered.map((m) => (
                                 <div
                                   key={m.id}
@@ -252,7 +260,7 @@ export default function PesananBaruPage() {
                           step="0.01"
                           placeholder="Qty"
                           value={mu.qty_used}
-                          onChange={(e) => updateMaterialUse(idx, muIdx, 'qty_used', e.target.value)}
+                          onChange={(e) => handleQtyChange(idx, muIdx, e.target.value)}
                           className="w-16 border rounded px-2 py-1 text-xs"
                         />
                         <button
