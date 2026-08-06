@@ -9,7 +9,7 @@ function emptyItem() {
 }
 
 function emptyMaterialUse() {
-  return { material_id: '', qty_used: 1 };
+  return { material_id: '', qty_used: 1, query: '' };
 }
 
 export default function PesananBaruPage() {
@@ -22,6 +22,7 @@ export default function PesananBaruPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [materials, setMaterials] = useState([]);
+  const [openPicker, setOpenPicker] = useState(null);
 
   useEffect(() => {
     fetch('/api/materials')
@@ -82,6 +83,12 @@ export default function PesananBaruPage() {
     mu[muIdx] = { ...mu[muIdx], [field]: value };
     next[itemIdx] = { ...next[itemIdx], materials_used: mu };
     setItems(next);
+  }
+
+  function selectMaterial(itemIdx, muIdx, mat) {
+    updateMaterialUse(itemIdx, muIdx, 'material_id', mat.id);
+    updateMaterialUse(itemIdx, muIdx, 'query', mat.name);
+    setOpenPicker(null);
   }
 
   async function handleSubmit(e) {
@@ -203,38 +210,61 @@ export default function PesananBaruPage() {
 
                 <div className="pl-2 border-l-2 border-fleur-100">
                   <p className="text-xs font-medium text-gray-600 mb-1">Bahan yang dipakai (per 1 pcs)</p>
-                  {it.materials_used.map((mu, muIdx) => (
-                    <div key={muIdx} className="flex gap-2 items-center mb-1">
-                      <select
-                        value={mu.material_id}
-                        onChange={(e) => updateMaterialUse(idx, muIdx, 'material_id', e.target.value)}
-                        className="flex-1 border rounded px-2 py-1 text-xs"
-                      >
-                        <option value="">Pilih bahan...</option>
-                        {materials.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.name} ({m.unit}) - {formatRupiah(m.price)}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Qty"
-                        value={mu.qty_used}
-                        onChange={(e) => updateMaterialUse(idx, muIdx, 'qty_used', e.target.value)}
-                        className="w-16 border rounded px-2 py-1 text-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeMaterialUse(idx, muIdx)}
-                        className="text-red-500 text-xs px-1"
-                      >
-                        X
-                      </button>
-                    </div>
-                  ))}
+                  {it.materials_used.map((mu, muIdx) => {
+                    const pickerKey = idx + '-' + muIdx;
+                    const q = (mu.query || '').toLowerCase();
+                    const filtered = q
+                      ? materials.filter((m) => m.name.toLowerCase().includes(q))
+                      : materials;
+                    return (
+                      <div key={muIdx} className="flex gap-2 items-start mb-1 relative">
+                        <div className="flex-1 relative">
+                          <input
+                            type="text"
+                            placeholder="Ketik nama bahan..."
+                            value={mu.query}
+                            onChange={(e) => {
+                              updateMaterialUse(idx, muIdx, 'query', e.target.value);
+                              updateMaterialUse(idx, muIdx, 'material_id', '');
+                              setOpenPicker(pickerKey);
+                            }}
+                            onFocus={() => setOpenPicker(pickerKey)}
+                            onBlur={() => setTimeout(() => setOpenPicker(null), 150)}
+                            className="w-full border rounded px-2 py-1 text-xs"
+                          />
+                          {openPicker === pickerKey && filtered.length > 0 && (
+                            <div className="absolute z-10 top-full left-0 right-0 bg-white border rounded shadow max-h-40 overflow-y-auto">
+                              {filtered.map((m) => (
+                                <div
+                                  key={m.id}
+                                  onMouseDown={() => selectMaterial(idx, muIdx, m)}
+                                  className="px-2 py-1 text-xs hover:bg-fleur-50 cursor-pointer"
+                                >
+                                  {m.name} ({m.unit}) - {formatRupiah(m.price)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Qty"
+                          value={mu.qty_used}
+                          onChange={(e) => updateMaterialUse(idx, muIdx, 'qty_used', e.target.value)}
+                          className="w-16 border rounded px-2 py-1 text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeMaterialUse(idx, muIdx)}
+                          className="text-red-500 text-xs px-1"
+                        >
+                          X
+                        </button>
+                      </div>
+                    );
+                  })}
                   <button
                     type="button"
                     onClick={() => addMaterialUse(idx)}
