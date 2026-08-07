@@ -32,6 +32,11 @@ export async function GET(request) {
   const total_omzet = orders.reduce((s, o) => s + Number(o.total), 0);
   const total_dp_masuk = orders.reduce((s, o) => s + Number(o.dp), 0);
   const piutang = orders.reduce((s, o) => s + (Number(o.total) - Number(o.dp)), 0);
+  const total_hpp = orders.reduce((s, o) => {
+    const itemsHpp = (o.order_items || []).reduce((si, it) => si + Number(it.hpp || 0), 0);
+    return s + itemsHpp;
+  }, 0);
+  const laba_kotor = total_omzet - total_hpp;
 
   const produkMap = {};
   for (const o of orders) {
@@ -44,11 +49,13 @@ export async function GET(request) {
   }
   const produk_terlaris = Object.values(produkMap).sort((a, b) => b.jumlah - a.jumlah);
 
-  return NextResponse.json({
+ return NextResponse.json({
     total_pesanan,
     total_omzet,
     total_dp_masuk,
     piutang,
+    total_hpp,
+    laba_kotor,
     produk_terlaris,
     orders,
   });
