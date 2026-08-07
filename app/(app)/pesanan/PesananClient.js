@@ -160,8 +160,14 @@ export default function PesananClient({ role }) {
                       Lihat / Cetak
                     </Link>
                   </td>
-                  {role === 'owner' && (
+                 {role === 'owner' && (
                     <td className="px-3 py-2">
+                      <Link
+                        href={`/pesanan/${o.id}/edit`}
+                        className="text-fleur-600 hover:underline text-xs font-medium mr-2"
+                      >
+                        Edit
+                      </Link>
                       <button
                         onClick={() => hapusPesanan(o.id, o.order_code)}
                         className="text-red-600 hover:underline text-xs font-medium"
