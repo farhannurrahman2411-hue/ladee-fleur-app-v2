@@ -291,20 +291,20 @@ export default function BahanClient() {
                       Number(m.current_stock) <= Number(m.min_stock) ? 'bg-red-50' : ''
                     }`}
                   >
-                    <td className="px-3 py-2">
-                      <input
-                        type="text"
+            <td className="px-3 py-2">
+                      <textarea
                         defaultValue={m.name}
                         onBlur={(e) => updateField(m.id, 'name', e.target.value)}
-                        className="border rounded px-2 py-1 text-xs w-28 font-medium"
+                        rows={2}
+                        className="border rounded px-2 py-1 text-xs w-28 font-medium resize-none"
                       />
                     </td>
                     <td className="px-3 py-2">
-                      <input
-                        type="text"
+                      <textarea
                         defaultValue={m.category}
                         onBlur={(e) => updateField(m.id, 'category', e.target.value)}
-                        className="border rounded px-2 py-1 text-xs w-20"
+                        rows={2}
+                        className="border rounded px-2 py-1 text-xs w-20 resize-none"
                       />
                     </td>
                     <td className="px-3 py-2">
