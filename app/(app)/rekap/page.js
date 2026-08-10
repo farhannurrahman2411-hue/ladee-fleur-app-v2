@@ -53,14 +53,14 @@ export default function RekapPage() {
       }))
     );
 
-   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-            <Card label="Total Pesanan" value={data.total_pesanan} />
-            <Card label="Total Omzet" value={formatRupiah(data.total_omzet)} />
-            <Card label="Total HPP" value={formatRupiah(data.total_hpp)} />
-            <Card label="Laba Kotor" value={formatRupiah(data.laba_kotor)} />
-            <Card label="Total DP Masuk" value={formatRupiah(data.total_dp_masuk)} />
-            <Card label="Piutang / Sisa" value={formatRupiah(data.piutang)} />
-          </div>
+    const wsRingkasan = XLSX.utils.json_to_sheet([
+      { Keterangan: 'Total Pesanan', Nilai: data.total_pesanan },
+      { Keterangan: 'Total Omzet', Nilai: data.total_omzet },
+      { Keterangan: 'Total HPP', Nilai: data.total_hpp },
+      { Keterangan: 'Laba Kotor', Nilai: data.laba_kotor },
+      { Keterangan: 'Total DP Masuk', Nilai: data.total_dp_masuk },
+      { Keterangan: 'Piutang / Sisa Pembayaran', Nilai: data.piutang },
+    ]);
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, wsRingkasan, 'Ringkasan');
@@ -95,9 +95,11 @@ export default function RekapPage() {
         <p className="text-gray-500">Memuat...</p>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <Card label="Total Pesanan" value={data.total_pesanan} />
             <Card label="Total Omzet" value={formatRupiah(data.total_omzet)} />
+            <Card label="Total HPP" value={formatRupiah(data.total_hpp)} />
+            <Card label="Laba Kotor" value={formatRupiah(data.laba_kotor)} />
             <Card label="Total DP Masuk" value={formatRupiah(data.total_dp_masuk)} />
             <Card label="Piutang / Sisa" value={formatRupiah(data.piutang)} />
           </div>
