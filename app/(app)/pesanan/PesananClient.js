@@ -11,6 +11,7 @@ export default function PesananClient({ role }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [bulan, setBulan] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -65,10 +66,11 @@ export default function PesananClient({ role }) {
 
   const filtered = orders.filter((o) => {
     const q = search.toLowerCase();
-    return (
+    const matchSearch =
       o.order_code?.toLowerCase().includes(q) ||
-      o.customer_name?.toLowerCase().includes(q)
-    );
+      o.customer_name?.toLowerCase().includes(q);
+    const matchBulan = bulan ? o.order_date?.startsWith(bulan) : true;
+    return matchSearch && matchBulan;
   });
 
   return (
@@ -83,13 +85,30 @@ export default function PesananClient({ role }) {
         </Link>
       </div>
 
-      <input
-        type="text"
-        placeholder="Cari no. pesanan atau nama customer..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full border rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-fleur-400"
-      />
+      <div className="flex gap-2 mb-4">
+        <input
+          type="text"
+          placeholder="Cari no. pesanan atau nama customer..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-fleur-400"
+        />
+        <input
+          type="month"
+          value={bulan}
+          onChange={(e) => setBulan(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm"
+        />
+        {bulan && (
+          <button
+            type="button"
+            onClick={() => setBulan('')}
+            className="text-xs text-gray-500 hover:underline px-2"
+          >
+            Reset Bulan
+          </button>
+        )}
+      </div>
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
@@ -160,7 +179,7 @@ export default function PesananClient({ role }) {
                       Lihat / Cetak
                     </Link>
                   </td>
-                 {role === 'owner' && (
+                  {role === 'owner' && (
                     <td className="px-3 py-2">
                       <Link
                         href={`/pesanan/${o.id}/edit`}
