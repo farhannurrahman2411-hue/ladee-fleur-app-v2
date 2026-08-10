@@ -1,36 +1,26 @@
 'use client';
 
-import React, { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 function formatRupiah(n) {
   return 'Rp' + Number(n || 0).toLocaleString('id-ID');
 }
 
-function PurchaseLink(props) {
-  return React.createElement(
-    'a',
-    {
-      href: props.url,
-      target: '_blank',
-      rel: 'noopener noreferrer',
-      className: 'text-blue-600 hover:underline text-xs',
-    },
-    props.label || props.url
-  );
-}
+const EMPTY_LINK = { label: '', url: '' };
 
 export default function BahanClient() {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     name: '', category: '', price: '', unit: 'pcs', current_stock: '', min_stock: '',
   });
-  const [formLinks, setFormLinks] = useState([{ label: '', url: '' }]);
+  const [formLinks, setFormLinks] = useState([{ ...EMPTY_LINK }]);
 
   const [editingLinksId, setEditingLinksId] = useState(null);
-  const [linkDraft, setLinkDraft] = useState([{ label: '', url: '' }]);
+  const [linkDraft, setLinkDraft] = useState([{ ...EMPTY_LINK }]);
 
   useEffect(() => {
     loadMaterials();
@@ -51,52 +41,34 @@ export default function BahanClient() {
   }
 
   function addFormLink() {
-    setFormLinks(function (prev) {
-      return prev.concat([{ label: '', url: '' }]);
-    });
+    setFormLinks((prev) => [...prev, { ...EMPTY_LINK }]);
   }
 
   function removeFormLink(index) {
-    setFormLinks(function (prev) {
-      return prev.filter(function (item, i) {
-        return i !== index;
-      });
-    });
+    setFormLinks((prev) => prev.filter((_, i) => i !== index));
   }
 
   function updateFormLink(index, field, value) {
-    setFormLinks(function (prev) {
-      return prev.map(function (item, i) {
-        if (i === index) {
-          var copy = Object.assign({}, item);
-          copy[field] = value;
-          return copy;
-        }
-        return item;
-      });
-    });
+    setFormLinks((prev) =>
+      prev.map((l, i) => (i === index ? { ...l, [field]: value } : l))
+    );
   }
 
   async function handleAddSubmit(e) {
     e.preventDefault();
     try {
-      var cleanLinks = formLinks
-        .map(function (l) {
-          return { label: l.label.trim(), url: l.url.trim() };
-        })
-        .filter(function (l) {
-          return l.url !== '';
-        });
-      var payload = Object.assign({}, form, { purchase_links: cleanLinks });
+      const cleanLinks = formLinks
+        .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+        .filter((l) => l.url !== '');
       const res = await fetch('/api/materials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...form, purchase_links: cleanLinks }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setForm({ name: '', category: '', price: '', unit: 'pcs', current_stock: '', min_stock: '' });
-      setFormLinks([{ label: '', url: '' }]);
+      setFormLinks([{ ...EMPTY_LINK }]);
       setShowForm(false);
       loadMaterials();
     } catch (err) {
@@ -105,33 +77,24 @@ export default function BahanClient() {
   }
 
   async function updateField(id, field, value) {
-    var payload = {};
-    payload[field] = value;
-    await fetch('/api/materials/' + id, {
+    await fetch(`/api/materials/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ [field]: value }),
     });
   }
 
   function handleLocalChange(id, field, value) {
-    setMaterials(function (prev) {
-      return prev.map(function (m) {
-        if (m.id === id) {
-          var copy = Object.assign({}, m);
-          copy[field] = value;
-          return copy;
-        }
-        return m;
-      });
-    });
+    setMaterials((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, [field]: value } : m))
+    );
   }
 
   async function hapusBahan(id, name) {
-    var yakin = window.confirm('Yakin mau hapus bahan "' + name + '"?');
+    const yakin = window.confirm(`Yakin mau hapus bahan "${name}"?`);
     if (!yakin) return;
     try {
-      const res = await fetch('/api/materials/' + id, { method: 'DELETE' });
+      const res = await fetch(`/api/materials/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       loadMaterials();
@@ -140,59 +103,41 @@ export default function BahanClient() {
     }
   }
 
+  const filteredMaterials = materials.filter((m) =>
+    m.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   function bukaKelolaLink(m) {
-    var existing;
-    if (Array.isArray(m.purchase_links) && m.purchase_links.length > 0) {
-      existing = m.purchase_links.map(function (l) {
-        return { label: l.label || '', url: l.url || '' };
-      });
-    } else {
-      existing = [{ label: '', url: '' }];
-    }
+    const existing = Array.isArray(m.purchase_links) && m.purchase_links.length > 0
+      ? m.purchase_links.map((l) => ({ label: l.label || '', url: l.url || '' }))
+      : [{ ...EMPTY_LINK }];
     setLinkDraft(existing);
     setEditingLinksId(m.id);
   }
 
   function tutupKelolaLink() {
     setEditingLinksId(null);
-    setLinkDraft([{ label: '', url: '' }]);
+    setLinkDraft([{ ...EMPTY_LINK }]);
   }
 
   function addDraftLink() {
-    setLinkDraft(function (prev) {
-      return prev.concat([{ label: '', url: '' }]);
-    });
+    setLinkDraft((prev) => [...prev, { ...EMPTY_LINK }]);
   }
 
   function removeDraftLink(index) {
-    setLinkDraft(function (prev) {
-      return prev.filter(function (item, i) {
-        return i !== index;
-      });
-    });
+    setLinkDraft((prev) => prev.filter((_, i) => i !== index));
   }
 
   function updateDraftLink(index, field, value) {
-    setLinkDraft(function (prev) {
-      return prev.map(function (item, i) {
-        if (i === index) {
-          var copy = Object.assign({}, item);
-          copy[field] = value;
-          return copy;
-        }
-        return item;
-      });
-    });
+    setLinkDraft((prev) =>
+      prev.map((l, i) => (i === index ? { ...l, [field]: value } : l))
+    );
   }
 
   async function simpanKelolaLink(id) {
-    var cleanLinks = linkDraft
-      .map(function (l) {
-        return { label: l.label.trim(), url: l.url.trim() };
-      })
-      .filter(function (l) {
-        return l.url !== '';
-      });
+    const cleanLinks = linkDraft
+      .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+      .filter((l) => l.url !== '');
     try {
       await updateField(id, 'purchase_links', cleanLinks);
       handleLocalChange(id, 'purchase_links', cleanLinks);
@@ -207,7 +152,7 @@ export default function BahanClient() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-fleur-800">Database Bahan</h1>
         <button
-          onClick={function () { setShowForm(!showForm); }}
+          onClick={() => setShowForm(!showForm)}
           className="bg-fleur-600 hover:bg-fleur-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
         >
           {showForm ? 'Tutup Form' : '+ Tambah Bahan'}
@@ -220,7 +165,7 @@ export default function BahanClient() {
             type="text"
             placeholder="Nama bahan"
             value={form.name}
-            onChange={function (e) { setForm(Object.assign({}, form, { name: e.target.value })); }}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
             required
           />
@@ -228,70 +173,68 @@ export default function BahanClient() {
             type="text"
             placeholder="Kategori (misal: Bunga)"
             value={form.category}
-            onChange={function (e) { setForm(Object.assign({}, form, { category: e.target.value })); }}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
           />
           <input
             type="number"
             placeholder="Harga per satuan"
             value={form.price}
-            onChange={function (e) { setForm(Object.assign({}, form, { price: e.target.value })); }}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
           />
           <input
             type="text"
             placeholder="Satuan (pcs, meter, dll)"
             value={form.unit}
-            onChange={function (e) { setForm(Object.assign({}, form, { unit: e.target.value })); }}
+            onChange={(e) => setForm({ ...form, unit: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
           />
           <input
             type="number"
             placeholder="Stok saat ini"
             value={form.current_stock}
-            onChange={function (e) { setForm(Object.assign({}, form, { current_stock: e.target.value })); }}
+            onChange={(e) => setForm({ ...form, current_stock: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
           />
           <input
             type="number"
             placeholder="Stok minimum"
             value={form.min_stock}
-            onChange={function (e) { setForm(Object.assign({}, form, { min_stock: e.target.value })); }}
+            onChange={(e) => setForm({ ...form, min_stock: e.target.value })}
             className="border rounded-lg px-3 py-2 text-sm"
           />
 
           <div className="col-span-2 border-t pt-3 mt-1">
             <p className="text-sm font-medium text-fleur-800 mb-2">Link Beli (opsional, bisa lebih dari satu)</p>
             <div className="space-y-2">
-              {formLinks.map(function (link, idx) {
-                return (
-                  <div key={idx} className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Label (misal: Shopee Toko A)"
-                      value={link.label}
-                      onChange={function (e) { updateFormLink(idx, 'label', e.target.value); }}
-                      className="border rounded-lg px-3 py-2 text-sm w-1/3"
-                    />
-                    <input
-                      type="url"
-                      placeholder="https://..."
-                      value={link.url}
-                      onChange={function (e) { updateFormLink(idx, 'url', e.target.value); }}
-                      className="border rounded-lg px-3 py-2 text-sm flex-1"
-                    />
-                    {formLinks.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={function () { removeFormLink(idx); }}
-                        className="text-red-600 text-xs font-medium px-2"
-                      >
-                        Hapus
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+              {formLinks.map((link, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Label (misal: Shopee Toko A)"
+                    value={link.label}
+                    onChange={(e) => updateFormLink(idx, 'label', e.target.value)}
+                    className="border rounded-lg px-3 py-2 text-sm w-1/3"
+                  />
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={link.url}
+                    onChange={(e) => updateFormLink(idx, 'url', e.target.value)}
+                    className="border rounded-lg px-3 py-2 text-sm flex-1"
+                  />
+                  {formLinks.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeFormLink(idx)}
+                      className="text-red-600 text-xs font-medium px-2"
+                    >
+                      Hapus
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
             <button
               type="button"
@@ -311,11 +254,19 @@ export default function BahanClient() {
         </form>
       )}
 
+      <input
+        type="text"
+        placeholder="Cari nama bahan..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full border rounded-lg px-3 py-2 mb-4 text-sm"
+      />
+
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
       {loading ? (
         <p className="text-gray-500">Memuat...</p>
-      ) : materials.length === 0 ? (
+      ) : filteredMaterials.length === 0 ? (
         <p className="text-gray-500">Belum ada bahan.</p>
       ) : (
         <div className="bg-white rounded-xl shadow overflow-x-auto">
@@ -333,125 +284,150 @@ export default function BahanClient() {
               </tr>
             </thead>
             <tbody>
-              {materials.map(function (m) {
-                var isLow = Number(m.current_stock) <= Number(m.min_stock);
-                var rowClass = isLow ? 'border-t bg-red-50' : 'border-t';
-                var links = Array.isArray(m.purchase_links) ? m.purchase_links : [];
-                return (
-                  <Fragment key={m.id}>
-                    <tr className={rowClass}>
-                      <td className="px-3 py-2 font-medium">{m.name}</td>
-                      <td className="px-3 py-2">{m.category || '-'}</td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          defaultValue={m.price}
-                          onBlur={function (e) { updateField(m.id, 'price', Number(e.target.value)); }}
-                          className="border rounded px-2 py-1 text-xs w-24"
-                        />
-                      </td>
-                      <td className="px-3 py-2">{m.unit}</td>
-                      <td className="px-3 py-2">
-                        <input
-                          type="number"
-                          defaultValue={m.current_stock}
-                          onBlur={function (e) { updateField(m.id, 'current_stock', Number(e.target.value)); }}
-                          className="border rounded px-2 py-1 text-xs w-20"
-                        />
-                      </td>
-                      <td className="px-3 py-2">{m.min_stock}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-col gap-1">
-                          {links.length > 0 ? (
-                            links.map(function (l, i) {
-                              return React.createElement(PurchaseLink, { key: i, url: l.url, label: l.label });
-                            })
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
+              {filteredMaterials.map((m) => (
+                <Fragment key={m.id}>
+                  <tr
+                    className={`border-t ${
+                      Number(m.current_stock) <= Number(m.min_stock) ? 'bg-red-50' : ''
+                    }`}
+                  >
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        defaultValue={m.name}
+                        onBlur={(e) => updateField(m.id, 'name', e.target.value)}
+                        className="border rounded px-2 py-1 text-xs w-28 font-medium"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        defaultValue={m.category}
+                        onBlur={(e) => updateField(m.id, 'category', e.target.value)}
+                        className="border rounded px-2 py-1 text-xs w-20"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        defaultValue={m.price}
+                        onBlur={(e) => updateField(m.id, 'price', Number(e.target.value))}
+                        className="border rounded px-2 py-1 text-xs w-24"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        defaultValue={m.unit}
+                        onBlur={(e) => updateField(m.id, 'unit', e.target.value)}
+                        className="border rounded px-2 py-1 text-xs w-14"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        defaultValue={m.current_stock}
+                        onBlur={(e) => updateField(m.id, 'current_stock', Number(e.target.value))}
+                        className="border rounded px-2 py-1 text-xs w-20"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        defaultValue={m.min_stock}
+                        onBlur={(e) => updateField(m.id, 'min_stock', Number(e.target.value))}
+                        className="border rounded px-2 py-1 text-xs w-16"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col gap-1">
+                        {Array.isArray(m.purchase_links) && m.purchase_links.length > 0 ? (
+                          m.purchase_links.map((l, i) => (
+                            <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">{l.label || l.url}</a>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
+                        <button
+                          onClick={() => bukaKelolaLink(m)}
+                          className="text-fleur-700 hover:underline text-xs font-medium text-left"
+                        >
+                          Kelola Link
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        onClick={() => hapusBahan(m.id, m.name)}
+                        className="text-red-600 hover:underline text-xs font-medium"
+                      >
+                        Hapus
+                      </button>
+                    </td>
+                  </tr>
+                  {editingLinksId === m.id && (
+                    <tr className="border-t bg-fleur-50">
+                      <td colSpan={8} className="px-3 py-3">
+                        <p className="text-sm font-medium text-fleur-800 mb-2">
+                          Kelola Link Beli - {m.name}
+                        </p>
+                        <div className="space-y-2 max-w-2xl">
+                          {linkDraft.map((link, idx) => (
+                            <div key={idx} className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Label (misal: Shopee Toko A)"
+                                value={link.label}
+                                onChange={(e) => updateDraftLink(idx, 'label', e.target.value)}
+                                className="border rounded-lg px-3 py-2 text-sm w-1/3"
+                              />
+                              <input
+                                type="url"
+                                placeholder="https://..."
+                                value={link.url}
+                                onChange={(e) => updateDraftLink(idx, 'url', e.target.value)}
+                                className="border rounded-lg px-3 py-2 text-sm flex-1"
+                              />
+                              {linkDraft.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeDraftLink(idx)}
+                                  className="text-red-600 text-xs font-medium px-2"
+                                >
+                                  Hapus
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3 mt-2">
                           <button
-                            onClick={function () { bukaKelolaLink(m); }}
-                            className="text-fleur-700 hover:underline text-xs font-medium text-left"
+                            type="button"
+                            onClick={addDraftLink}
+                            className="text-fleur-700 text-xs font-medium hover:underline"
                           >
-                            Kelola Link
+                            + Tambah Link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => simpanKelolaLink(m.id)}
+                            className="bg-fleur-600 hover:bg-fleur-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium"
+                          >
+                            Simpan Link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={tutupKelolaLink}
+                            className="text-gray-600 text-xs font-medium hover:underline"
+                          >
+                            Batal
                           </button>
                         </div>
                       </td>
-                      <td className="px-3 py-2">
-                        <button
-                          onClick={function () { hapusBahan(m.id, m.name); }}
-                          className="text-red-600 hover:underline text-xs font-medium"
-                        >
-                          Hapus
-                        </button>
-                      </td>
                     </tr>
-                    {editingLinksId === m.id && (
-                      <tr className="border-t bg-fleur-50">
-                        <td colSpan={8} className="px-3 py-3">
-                          <p className="text-sm font-medium text-fleur-800 mb-2">
-                            Kelola Link Beli - {m.name}
-                          </p>
-                          <div className="space-y-2 max-w-2xl">
-                            {linkDraft.map(function (link, idx) {
-                              return (
-                                <div key={idx} className="flex gap-2">
-                                  <input
-                                    type="text"
-                                    placeholder="Label (misal: Shopee Toko A)"
-                                    value={link.label}
-                                    onChange={function (e) { updateDraftLink(idx, 'label', e.target.value); }}
-                                    className="border rounded-lg px-3 py-2 text-sm w-1/3"
-                                  />
-                                  <input
-                                    type="url"
-                                    placeholder="https://..."
-                                    value={link.url}
-                                    onChange={function (e) { updateDraftLink(idx, 'url', e.target.value); }}
-                                    className="border rounded-lg px-3 py-2 text-sm flex-1"
-                                  />
-                                  {linkDraft.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={function () { removeDraftLink(idx); }}
-                                      className="text-red-600 text-xs font-medium px-2"
-                                    >
-                                      Hapus
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="flex items-center gap-3 mt-2">
-                            <button
-                              type="button"
-                              onClick={addDraftLink}
-                              className="text-fleur-700 text-xs font-medium hover:underline"
-                            >
-                              + Tambah Link
-                            </button>
-                            <button
-                              type="button"
-                              onClick={function () { simpanKelolaLink(m.id); }}
-                              className="bg-fleur-600 hover:bg-fleur-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium"
-                            >
-                              Simpan Link
-                            </button>
-                            <button
-                              type="button"
-                              onClick={tutupKelolaLink}
-                              className="text-gray-600 text-xs font-medium hover:underline"
-                            >
-                              Batal
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
+                  )}
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
