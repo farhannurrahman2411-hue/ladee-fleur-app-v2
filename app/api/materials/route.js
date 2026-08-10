@@ -30,6 +30,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Nama dan satuan wajib diisi' }, { status: 400 });
     }
     const supabase = supabaseAdmin();
+
+    const { data: existing } = await supabase
+      .from('materials')
+      .select('id')
+      .ilike('name', name.trim());
+    if (existing && existing.length > 0) {
+      return NextResponse.json({ error: 'Nama bahan "' + name.trim() + '" sudah ada' }, { status: 400 });
+    }
     const { data, error } = await supabase
       .from('materials')
       .insert({
