@@ -12,6 +12,7 @@ export default function KatalogClient() {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [materialsUsed, setMaterialsUsed] = useState([emptyMaterialUse()]);
@@ -53,6 +54,34 @@ export default function KatalogClient() {
     setOpenPicker(null);
   }
 
+  function resetForm() {
+    setName('');
+    setPrice('');
+    setMaterialsUsed([emptyMaterialUse()]);
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(t) {
+    setEditingId(t.id);
+    setName(t.name);
+    setPrice(t.price);
+    const muList = (t.bouquet_template_materials || []).map((tm) => ({
+      material_id: tm.material_id,
+      qty_used: tm.qty_used,
+      query: tm.materials ? tm.materials.name : '',
+    }));
+    setMaterialsUsed(muList.length > 0 ? muList : [emptyMaterialUse()]);
+    setShowForm(true);
+  }
+
+  const hppPreview = materialsUsed.reduce((sum, mu) => {
+    const mat = materials.find((m) => m.id === mu.material_id);
+    const matPrice = mat ? Number(mat.price) : 0;
+    return sum + matPrice * Number(mu.qty_used || 0);
+  }, 0);
+  const marginPreview = Number(price || 0) - hppPreview;
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!name.trim()) {
@@ -63,17 +92,16 @@ export default function KatalogClient() {
       .filter((m) => m.material_id && Number(m.qty_used) > 0)
       .map((m) => ({ material_id: m.material_id, qty_used: m.qty_used }));
     try {
-      const res = await fetch('/api/bouquet-templates', {
-        method: 'POST',
+      const url = editingId ? '/api/bouquet-templates/' + editingId : '/api/bouquet-templates';
+      const method = editingId ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, price, materials_used: rows }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setName('');
-      setPrice('');
-      setMaterialsUsed([emptyMaterialUse()]);
-      setShowForm(false);
+      resetForm();
       loadAll();
     } catch (err) {
       alert('Gagal menyimpan: ' + err.message);
@@ -102,7 +130,7 @@ export default function KatalogClient() {
       React.createElement(
         'button',
         {
-          onClick: () => setShowForm(!showForm),
+          onClick: () => (showForm ? resetForm() : setShowForm(true)),
           className: 'bg-fleur-600 hover:bg-fleur-700 text-white px-4 py-2 rounded-lg text-sm font-medium',
         },
         showForm ? 'Tutup Form' : '+ Tambah Template'
@@ -112,6 +140,8 @@ export default function KatalogClient() {
       React.createElement(
         'form',
         { onSubmit: handleSubmit, className: 'bg-white rounded-xl shadow p-4 mb-4 space-y-3' },
+        editingId &&
+          React.createElement('p', { className: 'text-xs text-fleur-600 font-medium' }, 'Mode edit template'),
         React.createElement('input', {
           type: 'text',
           placeholder: 'Nama bouquet (misal: Bouquet Mawar Sedang)',
@@ -195,12 +225,18 @@ export default function KatalogClient() {
           )
         ),
         React.createElement(
+          'div',
+          { className: 'bg-fleur-50 rounded-lg p-3 text-sm' },
+          React.createElement('p', null, 'HPP: ' + formatRupiah(hppPreview)),
+          React.createElement('p', null, 'Margin: ' + formatRupiah(marginPreview))
+        ),
+        React.createElement(
           'button',
           {
             type: 'submit',
             className: 'bg-fleur-600 hover:bg-fleur-700 text-white px-4 py-2 rounded-lg text-sm font-medium',
           },
-          'Simpan Template'
+          editingId ? 'Simpan Perubahan' : 'Simpan Template'
         )
       ),
     loading
@@ -221,6 +257,7 @@ export default function KatalogClient() {
                 null,
                 React.createElement('th', { className: 'px-3 py-2' }, 'Nama'),
                 React.createElement('th', { className: 'px-3 py-2' }, 'Harga'),
+                React.createElement('th', { className: 'px-3 py-2' }, 'HPP'),
                 React.createElement('th', { className: 'px-3 py-2' }, 'Bahan'),
                 React.createElement('th', { className: 'px-3 py-2' }, 'Aksi')
               )
@@ -228,12 +265,17 @@ export default function KatalogClient() {
             React.createElement(
               'tbody',
               null,
-              templates.map((t) =>
-                React.createElement(
+              templates.map((t) => {
+                const tplHpp = (t.bouquet_template_materials || []).reduce((sum, m) => {
+                  const matPrice = m.materials ? Number(m.materials.price) : 0;
+                  return sum + matPrice * Number(m.qty_used);
+                }, 0);
+                return React.createElement(
                   'tr',
                   { key: t.id, className: 'border-t' },
                   React.createElement('td', { className: 'px-3 py-2 font-medium' }, t.name),
                   React.createElement('td', { className: 'px-3 py-2' }, formatRupiah(t.price)),
+                  React.createElement('td', { className: 'px-3 py-2' }, formatRupiah(tplHpp)),
                   React.createElement(
                     'td',
                     { className: 'px-3 py-2 text-xs' },
@@ -247,14 +289,22 @@ export default function KatalogClient() {
                     React.createElement(
                       'button',
                       {
+                        onClick: () => startEdit(t),
+                        className: 'text-fleur-600 hover:underline text-xs font-medium mr-2',
+                      },
+                      'Edit'
+                    ),
+                    React.createElement(
+                      'button',
+                      {
                         onClick: () => hapusTemplate(t.id, t.name),
                         className: 'text-red-600 hover:underline text-xs font-medium',
                       },
                       'Hapus'
                     )
                   )
-                )
-              )
+                );
+              })
             )
           )
         )
