@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatTanggal } from '../../../lib/formatters';
+import { formatTanggal, formatRupiah } from '../../../lib/formatters';
 
 const PROGRES_OPTIONS = ['Belum Dikerjakan', 'Proses', 'Selesai'];
+const UPAH_MATERIAL_NAME = 'Upah kerja 10 menit';
 
 const badgeColor = {
   'Belum Dikerjakan': 'bg-yellow-100 text-yellow-700',
@@ -59,6 +60,27 @@ export default function JobClient() {
     return o.order_date?.slice(0, 7) === month;
   });
 
+  const selesai = filtered.filter((o) => o.progres_pembuatan === 'Selesai');
+
+  const dashboard = {};
+  for (const o of selesai) {
+    const nama = (o.pengerja || '').trim() || '(Belum diisi)';
+    if (!dashboard[nama]) {
+      dashboard[nama] = { nama, totalBouquet: 0, jenis: {}, totalUpah: 0 };
+    }
+    for (const it of o.order_items || []) {
+      dashboard[nama].totalBouquet += Number(it.qty) || 0;
+      const jenisNama = it.product_name || '-';
+      dashboard[nama].jenis[jenisNama] = (dashboard[nama].jenis[jenisNama] || 0) + Number(it.qty || 0);
+      for (const mu of it.order_item_materials || []) {
+        if (mu.materials && mu.materials.name === UPAH_MATERIAL_NAME) {
+          dashboard[nama].totalUpah += Number(mu.qty_used) * Number(mu.unit_price);
+        }
+      }
+    }
+  }
+  const dashboardRows = Object.values(dashboard).sort((a, b) => b.totalBouquet - a.totalBouquet);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -73,6 +95,39 @@ export default function JobClient() {
 
       {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
 
+      <h2 className="font-semibold text-fleur-800 mb-2">Dashboard Karyawan Bulan Ini</h2>
+      {dashboardRows.length === 0 ? (
+        <p className="text-gray-500 mb-6">Belum ada pesanan selesai bulan ini.</p>
+      ) : (
+        <div className="bg-white rounded-xl shadow overflow-x-auto mb-6">
+          <table className="w-full text-sm">
+            <thead className="bg-fleur-100 text-fleur-800 text-left">
+              <tr>
+                <th className="px-3 py-2">Karyawan</th>
+                <th className="px-3 py-2">Jumlah Bouquet</th>
+                <th className="px-3 py-2">Jenis Bouquet</th>
+                <th className="px-3 py-2">Total Upah</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dashboardRows.map((d) => (
+                <tr key={d.nama} className="border-t align-top">
+                  <td className="px-3 py-2 font-medium">{d.nama}</td>
+                  <td className="px-3 py-2">{d.totalBouquet}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {Object.entries(d.jenis)
+                      .map(([nama, qty]) => `${nama} x${qty}`)
+                      .join(', ')}
+                  </td>
+                  <td className="px-3 py-2 font-medium">{formatRupiah(d.totalUpah)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h2 className="font-semibold text-fleur-800 mb-2">Semua Pesanan Bulan Ini</h2>
       {loading ? (
         <p className="text-gray-500">Memuat...</p>
       ) : filtered.length === 0 ? (
