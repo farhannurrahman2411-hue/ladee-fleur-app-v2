@@ -10,7 +10,18 @@ export async function PATCH(request, { params }) {
   try {
     const body = await request.json();
     const updates = {};
-    if (body.name !== undefined) updates.name = body.name;
+    if (body.name !== undefined) {
+      const supabaseCheck = supabaseAdmin();
+      const { data: existing } = await supabaseCheck
+        .from('materials')
+        .select('id')
+        .ilike('name', body.name.trim())
+        .neq('id', params.id);
+      if (existing && existing.length > 0) {
+        return NextResponse.json({ error: 'Nama bahan "' + body.name.trim() + '" sudah ada' }, { status: 400 });
+      }
+      updates.name = body.name;
+    }
     if (body.category !== undefined) updates.category = body.category;
     if (body.price !== undefined) updates.price = Number(body.price) || 0;
     if (body.unit !== undefined) updates.unit = body.unit;
