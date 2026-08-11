@@ -13,15 +13,24 @@ function getDefaultMonth() {
 
 export default function DashboardKaryawanClient() {
   const [orders, setOrders] = useState([]);
+  const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(getDefaultMonth());
 
   useEffect(() => {
-    fetch('/api/orders')
-      .then((r) => r.json())
-      .then((d) => setOrders(d.orders || []))
+    Promise.all([
+      fetch('/api/orders').then((r) => r.json()),
+      fetch('/api/materials').then((r) => r.json()),
+    ])
+      .then(([orderData, matData]) => {
+        setOrders(orderData.orders || []);
+        setMaterials(matData.materials || []);
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const upahMaterial = materials.find((m) => m.name === UPAH_MATERIAL_NAME);
+  const upahHargaTerkini = upahMaterial ? Number(upahMaterial.price) : 0;
 
   const filtered = orders.filter((o) => {
     if (!month) return true;
@@ -41,7 +50,7 @@ export default function DashboardKaryawanClient() {
       dashboard[nama].jenis[jenisNama] = (dashboard[nama].jenis[jenisNama] || 0) + Number(it.qty || 0);
       for (const mu of it.order_item_materials || []) {
         if (mu.materials && mu.materials.name === UPAH_MATERIAL_NAME) {
-          dashboard[nama].totalUpah += Number(mu.qty_used) * Number(mu.unit_price);
+          dashboard[nama].totalUpah += Number(mu.qty_used) * upahHargaTerkini;
         }
       }
     }
@@ -66,7 +75,7 @@ export default function DashboardKaryawanClient() {
       </div>
 
       <p className="text-xs text-gray-500 mb-3">
-        Dihitung dari pesanan berstatus "Selesai" pada bulan yang dipilih.
+        Dihitung dari pesanan berstatus "Selesai" pada bulan yang dipilih, memakai harga upah terkini dari Database Bahan ({formatRupiah(upahHargaTerkini)}/10 menit).
       </p>
 
       {loading ? (
