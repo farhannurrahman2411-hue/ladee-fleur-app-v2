@@ -12,7 +12,7 @@ export async function GET(request) {
   const bulan = searchParams.get('bulan'); // format YYYY-MM, opsional
 
   const supabase = supabaseAdmin();
-  let query = supabase.from('orders').select('*, order_items(*)');
+  let query = supabase.from('orders').select('*, order_items(*, order_item_materials(*, materials(name)))');
 
   if (bulan) {
     const start = `${bulan}-01`;
