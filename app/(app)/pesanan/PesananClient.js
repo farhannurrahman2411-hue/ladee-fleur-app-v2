@@ -124,6 +124,7 @@ export default function PesananClient({ role }) {
                 <th className="px-3 py-2">No. Pesanan</th>
                 <th className="px-3 py-2">Tanggal</th>
                 <th className="px-3 py-2">Customer</th>
+        <th className="px-3 py-2">Produk</th>
                 <th className="px-3 py-2">Total</th>
                 <th className="px-3 py-2">Sisa</th>
                 <th className="px-3 py-2">Bayar</th>
@@ -138,6 +139,9 @@ export default function PesananClient({ role }) {
                   <td className="px-3 py-2 font-medium">{o.order_code}</td>
                   <td className="px-3 py-2">{formatTanggal(o.order_date)}</td>
                   <td className="px-3 py-2">{o.customer_name}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {(o.order_items || []).map((it) => `${it.product_name} x${it.qty}`).join(', ')}
+                  </td>
                   <td className="px-3 py-2">{formatRupiah(o.total)}</td>
                   <td className="px-3 py-2">{formatRupiah(o.total - o.dp)}</td>
                   <td className="px-3 py-2">
