@@ -38,11 +38,12 @@ export async function GET(request) {
   }, 0);
   const laba_kotor = total_omzet - total_hpp;
 
-  const produkMap = {};
+ const produkMap = {};
   for (const o of orders) {
     for (const it of o.order_items || []) {
-      const key = it.product_name;
-      if (!produkMap[key]) produkMap[key] = { produk: key, jumlah: 0, omzet: 0 };
+      const rawName = (it.product_name || '').trim();
+      const key = rawName.toLowerCase();
+      if (!produkMap[key]) produkMap[key] = { produk: rawName, jumlah: 0, omzet: 0 };
       produkMap[key].jumlah += Number(it.qty);
       produkMap[key].omzet += Number(it.qty) * Number(it.price);
     }
