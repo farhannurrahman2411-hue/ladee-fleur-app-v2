@@ -64,13 +64,7 @@ export default function JobClient() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-fleur-800">Job Perangkai Bouquet</h1>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/job/dashboard"
-            className="bg-fleur-600 hover:bg-fleur-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-          >
-            Dashboard Upah Karyawan
-          </Link>
+<div className="flex items-center gap-2">
           <input
             type="month"
             value={month}
