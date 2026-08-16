@@ -101,19 +101,10 @@ export async function POST(request) {
           qty_used: mr.qty_used * it.qty,
           unit_price: mr.unit_price,
         });
-
-        const { data: mat } = await supabase
-          .from('materials')
-          .select('current_stock')
-          .eq('id', mr.material_id)
-          .single();
-        if (mat) {
-          const newStock = Number(mat.current_stock) - mr.qty_used * it.qty;
-          await supabase
-            .from('materials')
-            .update({ current_stock: newStock })
-            .eq('id', mr.material_id);
-        }
+await supabase.rpc('decrement_stock', {
+            p_material_id: mr.material_id,
+            p_qty: mr.qty_used * it.qty,
+          });
       }
     }
 
