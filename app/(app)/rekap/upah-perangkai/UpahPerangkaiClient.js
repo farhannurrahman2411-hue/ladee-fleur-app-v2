@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { formatRupiah } from '../../../../lib/formatters';
 
@@ -17,26 +17,31 @@ export default function UpahPerangkaiClient() {
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(getDefaultMonth());
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/orders').then((r) => r.json()),
-      fetch('/api/materials').then((r) => r.json()),
-    ])
-      .then(([orderData, matData]) => {
-        setOrders(orderData.orders || []);
-        setMaterials(matData.materials || []);
-      })
-      .finally(() => setLoading(false));
+  const loadData = useCallback(async (m) => {
+    setLoading(true);
+    try {
+      const [orderRes, matRes] = await Promise.all([
+        fetch(`/api/orders?bulan=${m}&detailed=true`),
+        fetch('/api/materials'),
+      ]);
+      const [orderData, matData] = await Promise.all([orderRes.json(), matRes.json()]);
+      setOrders(orderData.orders || []);
+      setMaterials(matData.materials || []);
+    } catch (err) {
+      console.error('Error loading upah perangkai data:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData(month);
+  }, [month, loadData]);
 
   const upahMaterial = materials.find((m) => m.name === UPAH_MATERIAL_NAME);
   const upahHargaTerkini = upahMaterial ? Number(upahMaterial.price) : 0;
 
-  const filtered = orders.filter((o) => {
-    if (!month) return true;
-    return o.order_date?.slice(0, 7) === month;
-  });
-  const selesai = filtered.filter((o) => o.progres_pembuatan === 'Selesai');
+  const selesai = orders.filter((o) => o.progres_pembuatan === 'Selesai');
 
   const dashboard = {};
   for (const o of selesai) {
