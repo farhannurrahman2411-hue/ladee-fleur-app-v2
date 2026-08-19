@@ -2,3 +2,9 @@ node_modules
 .next
 .env.local
 .DS_Store
+.env
+./.env
+
+./docs/ANALYSIS_PROJECT.md
+docs/ANALYSIS_PROJECT.md
+docs/
