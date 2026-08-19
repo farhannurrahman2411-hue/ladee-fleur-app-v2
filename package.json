@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "create-user": "node scripts/create-user.js"
+    "create-user": "node scripts/create-user.js",
+    "db:push": "npx supabase db push",
+    "db:link": "npx supabase link"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
@@ -14,6 +16,7 @@
     "dotenv": "^16.4.5",
     "jose": "^5.9.6",
     "next": "14.2.15",
+    "pg": "^8.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "xlsx": "^0.18.5"
