@@ -31,19 +31,23 @@ export default function EditPesananPage() {
   const [orderDate, setOrderDate] = useState('');
   const [items, setItems] = useState([]);
   const [materials, setMaterials] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [openPicker, setOpenPicker] = useState(null);
+  const [openTemplatePicker, setOpenTemplatePicker] = useState(null);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/orders/' + params.id).then((r) => r.json()),
       fetch('/api/materials').then((r) => r.json()),
+      fetch('/api/bouquet-templates').then((r) => r.json()),
     ])
-      .then(([orderData, matData]) => {
+      .then(([orderData, matData, tplData]) => {
         if (orderData.error) throw new Error(orderData.error);
         setCustomerName(orderData.order.customer_name);
         setOrderDate(orderData.order.order_date);
         setItems((orderData.order.order_items || []).map(toItemState));
         setMaterials(matData.materials || []);
+        setTemplates(tplData.templates || []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -105,6 +109,23 @@ export default function EditPesananPage() {
   function selectMaterial(itemIdx, muIdx, mat) {
     patchMaterialUse(itemIdx, muIdx, { material_id: mat.id, query: mat.name });
     setOpenPicker(null);
+  }
+
+  function applyTemplate(itemIdx, tpl) {
+    const muList = (tpl.bouquet_template_materials || []).map((tm) => ({
+      material_id: tm.material_id,
+      qty_used: tm.qty_used,
+      query: tm.materials ? tm.materials.name : '',
+    }));
+    const next = [...items];
+    next[itemIdx] = {
+      ...next[itemIdx],
+      product_name: tpl.name,
+      price: tpl.price,
+      materials_used: muList.length > 0 ? muList : [emptyMaterialUse()],
+    };
+    setItems(next);
+    setOpenTemplatePicker(null);
   }
 
   async function handleSubmit(e) {
@@ -179,6 +200,35 @@ export default function EditPesananPage() {
           <div className="space-y-3">
             {items.map((it, idx) => (
               <div key={idx} className="border rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2" style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenTemplatePicker(openTemplatePicker === idx ? null : idx)}
+                    className="text-fleur-600 text-xs font-medium hover:underline"
+                  >
+                    Pilih dari Katalog
+                  </button>
+                  {openTemplatePicker === idx && (
+                    <div
+                      style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20 }}
+                      className="bg-white border rounded shadow max-h-40 overflow-y-auto w-64"
+                    >
+                      {templates.length === 0 && (
+                        <div className="px-2 py-1 text-xs text-gray-400">Belum ada template</div>
+                      )}
+                      {templates.map((t) => (
+                        <div
+                          key={t.id}
+                          onMouseDown={() => applyTemplate(idx, t)}
+                          className="px-2 py-1 text-xs hover:bg-fleur-50 cursor-pointer"
+                        >
+                          {t.name} - {formatRupiah(t.price)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-2 items-start mb-2">
                   <input
                     type="text"
