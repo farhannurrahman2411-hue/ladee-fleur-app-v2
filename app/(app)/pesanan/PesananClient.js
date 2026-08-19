@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { formatRupiah, formatTanggal } from '../../../lib/formatters';
 
@@ -14,14 +14,14 @@ export default function PesananClient({ role }) {
   const [bulan, setBulan] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  async function loadOrders() {
+  const loadOrders = useCallback(async (b = bulan, s = search) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/orders');
+      const params = new URLSearchParams();
+      if (b) params.append('bulan', b);
+      if (s.trim()) params.append('search', s.trim());
+
+      const res = await fetch(`/api/orders?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setOrders(data.orders || []);
@@ -30,48 +30,60 @@ export default function PesananClient({ role }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [bulan, search]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadOrders(bulan, search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [bulan, search, loadOrders]);
+
+  // Optimistic status update for instant UI responsiveness
   async function updateStatusPesanan(id, status_pesanan) {
-    await fetch(`/api/orders/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status_pesanan }),
-    });
-    loadOrders();
+    setOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, status_pesanan } : o))
+    );
+    try {
+      await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status_pesanan }),
+      });
+    } catch (err) {
+      loadOrders();
+    }
   }
 
   async function updateStatusBayar(id, status_bayar) {
-    await fetch(`/api/orders/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status_bayar }),
-    });
-    loadOrders();
+    setOrders((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, status_bayar } : o))
+    );
+    try {
+      await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status_bayar }),
+      });
+    } catch (err) {
+      loadOrders();
+    }
   }
 
   async function hapusPesanan(id, order_code) {
     const yakin = window.confirm(`Yakin mau hapus pesanan ${order_code}? Data yang dihapus tidak bisa dikembalikan.`);
     if (!yakin) return;
 
+    setOrders((prev) => prev.filter((o) => o.id !== id));
     try {
       const res = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      loadOrders();
     } catch (err) {
       alert('Gagal menghapus pesanan: ' + err.message);
+      loadOrders();
     }
   }
-
-  const filtered = orders.filter((o) => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      o.order_code?.toLowerCase().includes(q) ||
-      o.customer_name?.toLowerCase().includes(q);
-    const matchBulan = bulan ? o.order_date?.startsWith(bulan) : true;
-    return matchSearch && matchBulan;
-  });
 
   return (
     <div>
@@ -114,7 +126,7 @@ export default function PesananClient({ role }) {
 
       {loading ? (
         <p className="text-gray-500">Memuat...</p>
-      ) : filtered.length === 0 ? (
+      ) : orders.length === 0 ? (
         <p className="text-gray-500">Belum ada pesanan.</p>
       ) : (
         <div className="bg-white rounded-xl shadow overflow-x-auto">
@@ -124,7 +136,7 @@ export default function PesananClient({ role }) {
                 <th className="px-3 py-2">No. Pesanan</th>
                 <th className="px-3 py-2">Tanggal</th>
                 <th className="px-3 py-2">Customer</th>
-        <th className="px-3 py-2">Produk</th>
+                <th className="px-3 py-2">Produk</th>
                 <th className="px-3 py-2">Total</th>
                 <th className="px-3 py-2">Sisa</th>
                 <th className="px-3 py-2">Bayar</th>
@@ -134,7 +146,7 @@ export default function PesananClient({ role }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((o) => (
+              {orders.map((o) => (
                 <tr key={o.id} className="border-t">
                   <td className="px-3 py-2 font-medium">{o.order_code}</td>
                   <td className="px-3 py-2">{formatTanggal(o.order_date)}</td>

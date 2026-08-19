@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { formatTanggal } from '../../../lib/formatters';
 
@@ -23,14 +23,11 @@ export default function JobClient() {
   const [error, setError] = useState('');
   const [month, setMonth] = useState(getDefaultMonth());
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  async function loadOrders() {
+  const loadOrders = useCallback(async (m) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/orders');
+      const url = m ? `/api/orders?bulan=${m}` : '/api/orders';
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setOrders(data.orders || []);
@@ -39,14 +36,24 @@ export default function JobClient() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadOrders(month);
+  }, [month, loadOrders]);
 
   async function updateField(id, field, value) {
-    await fetch(`/api/orders/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [field]: value }),
-    });
+    // Optimistic local state update
+    handleLocalChange(id, field, value);
+    try {
+      await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+    } catch (err) {
+      console.error('Error saving field:', err);
+    }
   }
 
   function handleLocalChange(id, field, value) {
@@ -55,16 +62,16 @@ export default function JobClient() {
     );
   }
 
-  const filtered = orders.filter((o) => {
-    if (!month) return true;
-    return o.order_date?.slice(0, 7) === month;
-  });
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-fleur-800">Job Perangkai Bouquet</h1>
-<div className="flex items-center gap-2">
+        <div>
+          <h1 className="text-xl font-bold text-fleur-800">Job Perangkai Bouquet</h1>
+          <Link href="/job/dashboard" className="text-xs text-fleur-600 hover:underline">
+            Lihat Dashboard Upah &rarr;
+          </Link>
+        </div>
+        <div className="flex items-center gap-2">
           <input
             type="month"
             value={month}
@@ -78,7 +85,7 @@ export default function JobClient() {
 
       {loading ? (
         <p className="text-gray-500">Memuat...</p>
-      ) : filtered.length === 0 ? (
+      ) : orders.length === 0 ? (
         <p className="text-gray-500">Belum ada pesanan di bulan ini.</p>
       ) : (
         <div className="bg-white rounded-xl shadow overflow-x-auto">
@@ -96,7 +103,7 @@ export default function JobClient() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((o) => (
+              {orders.map((o) => (
                 <tr key={o.id} className="border-t align-top">
                   <td className="px-3 py-2 font-medium">{o.order_code}</td>
                   <td className="px-3 py-2">{formatTanggal(o.order_date)}</td>
@@ -134,7 +141,6 @@ export default function JobClient() {
                     <select
                       value={o.progres_pembuatan || 'Belum Dikerjakan'}
                       onChange={(e) => {
-                        handleLocalChange(o.id, 'progres_pembuatan', e.target.value);
                         updateField(o.id, 'progres_pembuatan', e.target.value);
                       }}
                       className={`border rounded px-2 py-1 text-xs font-medium ${

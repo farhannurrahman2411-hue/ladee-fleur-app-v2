@@ -10,9 +10,10 @@ export async function GET(request, { params }) {
   const supabase = supabaseAdmin();
   const { data, error } = await supabase
     .from('orders')
-    .select('*, order_items(*, order_item_materials(*, materials(name, unit)))')
+    .select('*, order_items(*, order_item_materials(*, materials(name, unit, price)))')
     .eq('id', params.id)
     .maybeSingle();
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -61,34 +62,38 @@ export async function PATCH(request, { params }) {
     if (body.customer_name !== undefined) updates.customer_name = body.customer_name;
     if (body.order_date !== undefined) updates.order_date = body.order_date;
 
+    // Item updates with batch operations (Owner only)
     if (Array.isArray(body.items)) {
       if (session.role !== 'owner') {
         return NextResponse.json({ error: 'Hanya owner yang boleh edit item pesanan' }, { status: 403 });
       }
 
+      // 1. Fetch old items and materials (1 query)
       const { data: oldItems } = await supabase
         .from('order_items')
         .select('id, order_item_materials(material_id, qty_used)')
         .eq('order_id', params.id);
 
+      // 2. Aggregate old stock restock amounts in memory
+      const restockMap = {};
       for (const oi of oldItems || []) {
         for (const mu of oi.order_item_materials || []) {
-          const { data: mat } = await supabase
-            .from('materials')
-            .select('current_stock')
-            .eq('id', mu.material_id)
-            .single();
-          if (mat) {
-            await supabase
-              .from('materials')
-              .update({ current_stock: Number(mat.current_stock) + Number(mu.qty_used) })
-              .eq('id', mu.material_id);
+          if (mu.material_id && mu.qty_used) {
+            restockMap[mu.material_id] = (restockMap[mu.material_id] || 0) + Number(mu.qty_used);
           }
         }
       }
 
+      // Parallel restock (1 roundtrip)
+      const restockPromises = Object.entries(restockMap).map(([matId, qty]) =>
+        supabase.rpc('increment_stock', { p_material_id: matId, p_qty: qty })
+      );
+      await Promise.all(restockPromises);
+
+      // 3. Delete old items in 1 query
       await supabase.from('order_items').delete().eq('order_id', params.id);
 
+      // 4. Clean and prepare new items
       const cleanItems = body.items
         .filter((it) => it.product_name && Number(it.qty) > 0)
         .map((it) => ({
@@ -99,54 +104,77 @@ export async function PATCH(request, { params }) {
         }));
 
       let newTotal = 0;
-      for (const it of cleanItems) {
+      const itemInsertRows = [];
+      const itemMaterialsMap = [];
+
+      cleanItems.forEach((it) => {
         newTotal += it.qty * it.price;
         let hpp = 0;
-        const materialRows = [];
+        const matRows = [];
         for (const mu of it.materials_used) {
           const qtyUsed = Number(mu.qty_used) || 0;
           const unitPrice = Number(mu.price) || 0;
           if (qtyUsed <= 0 || !mu.material_id) continue;
           hpp += qtyUsed * unitPrice;
-          materialRows.push({ material_id: mu.material_id, qty_used: qtyUsed, unit_price: unitPrice });
+          matRows.push({
+            material_id: mu.material_id,
+            qty_used: qtyUsed * it.qty,
+            unit_price: unitPrice,
+          });
         }
 
-        const { data: orderItem, error: itemErr } = await supabase
+        itemInsertRows.push({
+          order_id: params.id,
+          product_name: it.product_name,
+          qty: it.qty,
+          price: it.price,
+          hpp: hpp * it.qty,
+        });
+
+        itemMaterialsMap.push(matRows);
+      });
+
+      // 5. Batch insert new items (1 query)
+      if (itemInsertRows.length > 0) {
+        const { data: insertedItems, error: itemErr } = await supabase
           .from('order_items')
-          .insert({
-            order_id: params.id,
-            product_name: it.product_name,
-            qty: it.qty,
-            price: it.price,
-            hpp: hpp * it.qty,
-          })
-          .select()
-          .single();
+          .insert(itemInsertRows)
+          .select();
+
         if (itemErr) throw itemErr;
 
-        for (const mr of materialRows) {
-          await supabase.from('order_item_materials').insert({
-            order_item_id: orderItem.id,
-            material_id: mr.material_id,
-            qty_used: mr.qty_used * it.qty,
-            unit_price: mr.unit_price,
+        // 6. Batch insert all new materials (1 query) & parallel stock deduct
+        const allMaterialInsertRows = [];
+        const stockDeductMap = {};
+
+        (insertedItems || []).forEach((insertedItem, idx) => {
+          const matRows = itemMaterialsMap[idx] || [];
+          matRows.forEach((mr) => {
+            allMaterialInsertRows.push({
+              order_item_id: insertedItem.id,
+              material_id: mr.material_id,
+              qty_used: mr.qty_used,
+              unit_price: mr.unit_price,
+            });
+            stockDeductMap[mr.material_id] = (stockDeductMap[mr.material_id] || 0) + mr.qty_used;
           });
-          const { data: mat } = await supabase
-            .from('materials')
-            .select('current_stock')
-            .eq('id', mr.material_id)
-            .single();
-          if (mat) {
-            await supabase
-              .from('materials')
-              .update({ current_stock: Number(mat.current_stock) - mr.qty_used * it.qty })
-              .eq('id', mr.material_id);
-          }
+        });
+
+        if (allMaterialInsertRows.length > 0) {
+          await supabase.from('order_item_materials').insert(allMaterialInsertRows);
+          const deductPromises = Object.entries(stockDeductMap).map(([matId, qty]) =>
+            supabase.rpc('decrement_stock', { p_material_id: matId, p_qty: qty })
+          );
+          await Promise.all(deductPromises);
         }
       }
 
       updates.total = newTotal;
-      const { data: existing } = await supabase.from('orders').select('dp').eq('id', params.id).single();
+      const { data: existing } = await supabase
+        .from('orders')
+        .select('dp')
+        .eq('id', params.id)
+        .single();
       updates.status_bayar = Number(existing?.dp || 0) >= newTotal ? 'LUNAS' : 'BELUM LUNAS';
     }
 
@@ -160,10 +188,11 @@ export async function PATCH(request, { params }) {
       .eq('id', params.id)
       .select()
       .single();
+
     if (error) throw error;
     return NextResponse.json({ ok: true, order: data });
   } catch (err) {
-    console.error(err);
+    console.error('Error updating order:', err);
     return NextResponse.json({ error: err.message || 'Gagal update pesanan' }, { status: 500 });
   }
 }
