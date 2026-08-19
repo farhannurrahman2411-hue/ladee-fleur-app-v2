@@ -7,11 +7,10 @@ export default async function AppLayout({ children }) {
   if (!session) {
     redirect('/login');
   }
-
   return (
-    <div>
+    <div className="flex min-h-screen bg-gray-50">
       <NavBar session={session} />
-      <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
+      <main className="flex-1 px-6 py-6 max-w-6xl mx-auto w-full">{children}</main>
     </div>
   );
 }
