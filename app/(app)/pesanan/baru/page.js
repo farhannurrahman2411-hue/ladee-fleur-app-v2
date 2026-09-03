@@ -25,6 +25,7 @@ export default function PesananBaruPage() {
   const [templates, setTemplates] = useState([]);
   const [openPicker, setOpenPicker] = useState(null);
   const [openTemplatePicker, setOpenTemplatePicker] = useState(null);
+  const [templateSearch, setTemplateSearch] = useState('');
 
   useEffect(() => {
     fetch('/api/materials')
@@ -120,6 +121,7 @@ export default function PesananBaruPage() {
     };
     setItems(next);
     setOpenTemplatePicker(null);
+    setTemplateSearch('');
   }
 
   async function handleSubmit(e) {
@@ -209,7 +211,10 @@ export default function PesananBaruPage() {
                 <div className="flex items-center justify-between mb-2" style={{ position: 'relative' }}>
                   <button
                     type="button"
-                    onClick={() => setOpenTemplatePicker(openTemplatePicker === idx ? null : idx)}
+                    onClick={() => {
+                      setOpenTemplatePicker(openTemplatePicker === idx ? null : idx);
+                      setTemplateSearch('');
+                    }}
                     className="text-fleur-600 text-xs font-medium hover:underline"
                   >
                     Pilih dari Katalog
@@ -217,20 +222,31 @@ export default function PesananBaruPage() {
                   {openTemplatePicker === idx && (
                     <div
                       style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20 }}
-                      className="bg-white border rounded shadow max-h-40 overflow-y-auto w-64"
+                      className="bg-white border rounded shadow max-h-52 overflow-y-auto w-64"
                     >
-                      {templates.length === 0 && (
-                        <div className="px-2 py-1 text-xs text-gray-400">Belum ada template</div>
+                      <input
+                        type="text"
+                        placeholder="Cari bouquet..."
+                        value={templateSearch}
+                        onChange={(e) => setTemplateSearch(e.target.value)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="w-full border-b px-2 py-1 text-xs sticky top-0 bg-white"
+                        autoFocus
+                      />
+                      {templates.filter((t) => t.name.toLowerCase().includes(templateSearch.toLowerCase())).length === 0 && (
+                        <div className="px-2 py-1 text-xs text-gray-400">Tidak ditemukan</div>
                       )}
-                      {templates.map((t) => (
-                        <div
-                          key={t.id}
-                          onMouseDown={() => applyTemplate(idx, t)}
-                          className="px-2 py-1 text-xs hover:bg-fleur-50 cursor-pointer"
-                        >
-                          {t.name} - {formatRupiah(t.price)}
-                        </div>
-                      ))}
+                      {templates
+                        .filter((t) => t.name.toLowerCase().includes(templateSearch.toLowerCase()))
+                        .map((t) => (
+                          <div
+                            key={t.id}
+                            onMouseDown={() => applyTemplate(idx, t)}
+                            className="px-2 py-1 text-xs hover:bg-fleur-50 cursor-pointer"
+                          >
+                            {t.name} - {formatRupiah(t.price)}
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
