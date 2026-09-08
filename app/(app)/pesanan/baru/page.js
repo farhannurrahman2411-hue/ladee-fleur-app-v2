@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatRupiah } from '../../../../lib/formatters';
 
+const UPAH_MATERIAL_NAME = 'Upah kerja 10 menit';
+
 function emptyItem() {
   return { product_name: '', qty: 1, price: 0, materials_used: [] };
 }
@@ -40,16 +42,25 @@ export default function PesananBaruPage() {
 
   const total = items.reduce((sum, it) => sum + Number(it.qty || 0) * Number(it.price || 0), 0);
 
-  function itemHpp(it) {
+  function itemHppBahan(it) {
     return it.materials_used.reduce((sum, mu) => {
       const mat = materials.find((m) => m.id === mu.material_id);
-      const price = mat ? Number(mat.price) : 0;
-      return sum + price * Number(mu.qty_used || 0);
+      if (!mat || mat.name === UPAH_MATERIAL_NAME) return sum;
+      return sum + Number(mat.price) * Number(mu.qty_used || 0);
     }, 0) * Number(it.qty || 0);
   }
 
-  const totalHpp = items.reduce((sum, it) => sum + itemHpp(it), 0);
-  const margin = total - totalHpp;
+  function itemUpah(it) {
+    return it.materials_used.reduce((sum, mu) => {
+      const mat = materials.find((m) => m.id === mu.material_id);
+      if (!mat || mat.name !== UPAH_MATERIAL_NAME) return sum;
+      return sum + Number(mat.price) * Number(mu.qty_used || 0);
+    }, 0) * Number(it.qty || 0);
+  }
+
+  const totalHppBahan = items.reduce((sum, it) => sum + itemHppBahan(it), 0);
+  const totalUpah = items.reduce((sum, it) => sum + itemUpah(it), 0);
+  const margin = total - totalHppBahan - totalUpah;
 
   function updateItem(idx, field, value) {
     const next = [...items];
@@ -151,6 +162,7 @@ export default function PesananBaruPage() {
               material_id: mu.material_id,
               qty_used: mu.qty_used,
               price: mat ? mat.price : 0,
+              name: mat ? mat.name : '',
             };
           }),
       }));
@@ -348,7 +360,9 @@ export default function PesananBaruPage() {
                   >
                     + Tambah Bahan
                   </button>
-                  <p className="text-xs text-gray-400 mt-1">HPP item ini: {formatRupiah(itemHpp(it))}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    HPP Bahan: {formatRupiah(itemHppBahan(it))} &middot; Upah: {formatRupiah(itemUpah(it))}
+                  </p>
                 </div>
               </div>
             ))}
@@ -379,9 +393,10 @@ export default function PesananBaruPage() {
           </div>
         </div>
 
-        <div className="bg-fleur-50 rounded-lg p-3 text-sm">
-          <p>Total HPP: {formatRupiah(totalHpp)}</p>
-          <p>Margin: {formatRupiah(margin)}</p>
+        <div className="bg-fleur-50 rounded-lg p-3 text-sm space-y-0.5">
+          <p>HPP Bahan: {formatRupiah(totalHppBahan)}</p>
+          <p>Upah Kerja: {formatRupiah(totalUpah)}</p>
+          <p className="font-medium">Margin: {formatRupiah(margin)}</p>
         </div>
 
         <div>
