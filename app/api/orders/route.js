@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabase';
 import { getSession } from '../../../lib/session';
 
+const UPAH_MATERIAL_NAME = 'Upah kerja 10 menit';
+
 export async function GET(request) {
   const session = await getSession();
   if (!session) {
@@ -107,13 +109,19 @@ export async function POST(request) {
     const itemMaterialsMap = [];
 
     cleanItems.forEach((it, idx) => {
-      let hpp = 0;
+      let hppBahan = 0;
+      let upahKerja = 0;
       const matRows = [];
       for (const mu of it.materials_used) {
         const qtyUsed = Number(mu.qty_used) || 0;
         const unitPrice = Number(mu.price) || 0;
         if (qtyUsed <= 0 || !mu.material_id) continue;
-        hpp += qtyUsed * unitPrice;
+        const cost = qtyUsed * unitPrice;
+        if (mu.name === UPAH_MATERIAL_NAME) {
+          upahKerja += cost;
+        } else {
+          hppBahan += cost;
+        }
         matRows.push({
           material_id: mu.material_id,
           qty_used: qtyUsed * it.qty,
@@ -126,7 +134,8 @@ export async function POST(request) {
         product_name: it.product_name,
         qty: it.qty,
         price: it.price,
-        hpp: hpp * it.qty,
+        hpp: hppBahan * it.qty,
+        upah_kerja: upahKerja * it.qty,
       });
 
       itemMaterialsMap.push(matRows);
