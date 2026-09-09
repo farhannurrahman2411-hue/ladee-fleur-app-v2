@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { formatRupiah } from '../../../../../lib/formatters';
 
+const UPAH_MATERIAL_NAME = 'Upah kerja 10 menit';
+
 function toItemState(oi) {
   return {
     product_name: oi.product_name,
@@ -34,6 +36,7 @@ export default function EditPesananPage() {
   const [templates, setTemplates] = useState([]);
   const [openPicker, setOpenPicker] = useState(null);
   const [openTemplatePicker, setOpenTemplatePicker] = useState(null);
+  const [templateSearch, setTemplateSearch] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -55,16 +58,25 @@ export default function EditPesananPage() {
 
   const total = items.reduce((sum, it) => sum + Number(it.qty || 0) * Number(it.price || 0), 0);
 
-  function itemHpp(it) {
+  function itemHppBahan(it) {
     return it.materials_used.reduce((sum, mu) => {
       const mat = materials.find((m) => m.id === mu.material_id);
-      const price = mat ? Number(mat.price) : 0;
-      return sum + price * Number(mu.qty_used || 0);
+      if (!mat || mat.name === UPAH_MATERIAL_NAME) return sum;
+      return sum + Number(mat.price) * Number(mu.qty_used || 0);
     }, 0) * Number(it.qty || 0);
   }
 
-  const totalHpp = items.reduce((sum, it) => sum + itemHpp(it), 0);
-  const margin = total - totalHpp;
+  function itemUpah(it) {
+    return it.materials_used.reduce((sum, mu) => {
+      const mat = materials.find((m) => m.id === mu.material_id);
+      if (!mat || mat.name !== UPAH_MATERIAL_NAME) return sum;
+      return sum + Number(mat.price) * Number(mu.qty_used || 0);
+    }, 0) * Number(it.qty || 0);
+  }
+
+  const totalHppBahan = items.reduce((sum, it) => sum + itemHppBahan(it), 0);
+  const totalUpah = items.reduce((sum, it) => sum + itemUpah(it), 0);
+  const margin = total - totalHppBahan - totalUpah;
 
   function updateItem(idx, field, value) {
     const next = [...items];
@@ -126,6 +138,7 @@ export default function EditPesananPage() {
     };
     setItems(next);
     setOpenTemplatePicker(null);
+    setTemplateSearch('');
   }
 
   async function handleSubmit(e) {
@@ -145,7 +158,12 @@ export default function EditPesananPage() {
           .filter((mu) => mu.material_id && Number(mu.qty_used) > 0)
           .map((mu) => {
             const mat = materials.find((m) => m.id === mu.material_id);
-            return { material_id: mu.material_id, qty_used: mu.qty_used, price: mat ? mat.price : 0 };
+            return {
+              material_id: mu.material_id,
+              qty_used: mu.qty_used,
+              price: mat ? mat.price : 0,
+              name: mat ? mat.name : '',
+            };
           }),
       }));
       const res = await fetch('/api/orders/' + params.id, {
@@ -203,7 +221,10 @@ export default function EditPesananPage() {
                 <div className="flex items-center justify-between mb-2" style={{ position: 'relative' }}>
                   <button
                     type="button"
-                    onClick={() => setOpenTemplatePicker(openTemplatePicker === idx ? null : idx)}
+                    onClick={() => {
+                      setOpenTemplatePicker(openTemplatePicker === idx ? null : idx);
+                      setTemplateSearch('');
+                    }}
                     className="text-fleur-600 text-xs font-medium hover:underline"
                   >
                     Pilih dari Katalog
@@ -211,20 +232,31 @@ export default function EditPesananPage() {
                   {openTemplatePicker === idx && (
                     <div
                       style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20 }}
-                      className="bg-white border rounded shadow max-h-40 overflow-y-auto w-64"
+                      className="bg-white border rounded shadow max-h-52 overflow-y-auto w-64"
                     >
-                      {templates.length === 0 && (
-                        <div className="px-2 py-1 text-xs text-gray-400">Belum ada template</div>
+                      <input
+                        type="text"
+                        placeholder="Cari bouquet..."
+                        value={templateSearch}
+                        onChange={(e) => setTemplateSearch(e.target.value)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="w-full border-b px-2 py-1 text-xs sticky top-0 bg-white"
+                        autoFocus
+                      />
+                      {templates.filter((t) => t.name.toLowerCase().includes(templateSearch.toLowerCase())).length === 0 && (
+                        <div className="px-2 py-1 text-xs text-gray-400">Tidak ditemukan</div>
                       )}
-                      {templates.map((t) => (
-                        <div
-                          key={t.id}
-                          onMouseDown={() => applyTemplate(idx, t)}
-                          className="px-2 py-1 text-xs hover:bg-fleur-50 cursor-pointer"
-                        >
-                          {t.name} - {formatRupiah(t.price)}
-                        </div>
-                      ))}
+                      {templates
+                        .filter((t) => t.name.toLowerCase().includes(templateSearch.toLowerCase()))
+                        .map((t) => (
+                          <div
+                            key={t.id}
+                            onMouseDown={() => applyTemplate(idx, t)}
+                            className="px-2 py-1 text-xs hover:bg-fleur-50 cursor-pointer"
+                          >
+                            {t.name} - {formatRupiah(t.price)}
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
@@ -320,7 +352,9 @@ export default function EditPesananPage() {
                   >
                     + Tambah Bahan
                   </button>
-                  <p className="text-xs text-gray-400 mt-1">HPP item ini: {formatRupiah(itemHpp(it))}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    HPP Bahan: {formatRupiah(itemHppBahan(it))} &middot; Upah: {formatRupiah(itemUpah(it))}
+                  </p>
                 </div>
               </div>
             ))}
@@ -335,9 +369,10 @@ export default function EditPesananPage() {
           <p className="text-lg font-bold text-fleur-700">{formatRupiah(total)}</p>
         </div>
 
-        <div className="bg-fleur-50 rounded-lg p-3 text-sm">
-          <p>Total HPP: {formatRupiah(totalHpp)}</p>
-          <p>Margin: {formatRupiah(margin)}</p>
+        <div className="bg-fleur-50 rounded-lg p-3 text-sm space-y-0.5">
+          <p>HPP Bahan: {formatRupiah(totalHppBahan)}</p>
+          <p>Upah Kerja: {formatRupiah(totalUpah)}</p>
+          <p className="font-medium">Margin: {formatRupiah(margin)}</p>
         </div>
 
         {error && <p className="text-red-600 text-sm">{error}</p>}
