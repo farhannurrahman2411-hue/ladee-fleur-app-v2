@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { formatRupiah } from '../../../lib/formatters';
 
+const UPAH_MATERIAL_NAME = 'Upah kerja 10 menit';
+
 function emptyMaterialUse() {
   return { material_id: '', qty_used: 1, query: '' };
 }
@@ -80,12 +82,17 @@ export default function KatalogClient() {
     setShowForm(true);
   }
 
-  const hppPreview = materialsUsed.reduce((sum, mu) => {
+  const hppBahanPreview = materialsUsed.reduce((sum, mu) => {
     const mat = materials.find((m) => m.id === mu.material_id);
-    const matPrice = mat ? Number(mat.price) : 0;
-    return sum + matPrice * Number(mu.qty_used || 0);
+    if (!mat || mat.name === UPAH_MATERIAL_NAME) return sum;
+    return sum + Number(mat.price) * Number(mu.qty_used || 0);
   }, 0);
-  const marginPreview = Number(price || 0) - hppPreview;
+  const upahPreview = materialsUsed.reduce((sum, mu) => {
+    const mat = materials.find((m) => m.id === mu.material_id);
+    if (!mat || mat.name !== UPAH_MATERIAL_NAME) return sum;
+    return sum + Number(mat.price) * Number(mu.qty_used || 0);
+  }, 0);
+  const marginPreview = Number(price || 0) - hppBahanPreview - upahPreview;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -238,9 +245,10 @@ export default function KatalogClient() {
         ),
         React.createElement(
           'div',
-          { className: 'bg-fleur-50 rounded-lg p-3 text-sm' },
-          React.createElement('p', null, 'HPP: ' + formatRupiah(hppPreview)),
-          React.createElement('p', null, 'Margin: ' + formatRupiah(marginPreview))
+          { className: 'bg-fleur-50 rounded-lg p-3 text-sm space-y-0.5' },
+          React.createElement('p', null, 'HPP Bahan: ' + formatRupiah(hppBahanPreview)),
+          React.createElement('p', null, 'Upah Kerja: ' + formatRupiah(upahPreview)),
+          React.createElement('p', { className: 'font-medium' }, 'Margin: ' + formatRupiah(marginPreview))
         ),
         React.createElement(
           'button',
@@ -269,7 +277,9 @@ export default function KatalogClient() {
                 null,
                 React.createElement('th', { className: 'px-3 py-2' }, 'Nama'),
                 React.createElement('th', { className: 'px-3 py-2' }, 'Harga'),
-                React.createElement('th', { className: 'px-3 py-2' }, 'HPP'),
+                React.createElement('th', { className: 'px-3 py-2' }, 'HPP Bahan'),
+                React.createElement('th', { className: 'px-3 py-2' }, 'Upah Kerja'),
+                React.createElement('th', { className: 'px-3 py-2' }, 'Margin'),
                 React.createElement('th', { className: 'px-3 py-2' }, 'Bahan'),
                 React.createElement('th', { className: 'px-3 py-2' }, 'Aksi')
               )
@@ -278,20 +288,28 @@ export default function KatalogClient() {
               'tbody',
               null,
               filteredTemplates.map((t) => {
-                const tplHpp = (t.bouquet_template_materials || []).reduce((sum, m) => {
-                  const matPrice = m.materials ? Number(m.materials.price) : 0;
-                  return sum + matPrice * Number(m.qty_used);
+                const tplMaterials = t.bouquet_template_materials || [];
+                const tplHppBahan = tplMaterials.reduce((sum, m) => {
+                  if (!m.materials || m.materials.name === UPAH_MATERIAL_NAME) return sum;
+                  return sum + Number(m.materials.price) * Number(m.qty_used);
                 }, 0);
+                const tplUpah = tplMaterials.reduce((sum, m) => {
+                  if (!m.materials || m.materials.name !== UPAH_MATERIAL_NAME) return sum;
+                  return sum + Number(m.materials.price) * Number(m.qty_used);
+                }, 0);
+                const tplMargin = Number(t.price) - tplHppBahan - tplUpah;
                 return React.createElement(
                   'tr',
                   { key: t.id, className: 'border-t' },
                   React.createElement('td', { className: 'px-3 py-2 font-medium' }, t.name),
                   React.createElement('td', { className: 'px-3 py-2' }, formatRupiah(t.price)),
-                  React.createElement('td', { className: 'px-3 py-2' }, formatRupiah(tplHpp)),
+                  React.createElement('td', { className: 'px-3 py-2' }, formatRupiah(tplHppBahan)),
+                  React.createElement('td', { className: 'px-3 py-2' }, formatRupiah(tplUpah)),
+                  React.createElement('td', { className: 'px-3 py-2' }, formatRupiah(tplMargin)),
                   React.createElement(
                     'td',
                     { className: 'px-3 py-2 text-xs' },
-                    (t.bouquet_template_materials || [])
+                    tplMaterials
                       .map((m) => (m.materials ? m.materials.name + ' x' + m.qty_used : ''))
                       .join(', ')
                   ),
