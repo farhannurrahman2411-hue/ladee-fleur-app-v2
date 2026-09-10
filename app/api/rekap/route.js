@@ -12,10 +12,10 @@ export async function GET(request) {
   const bulan = searchParams.get('bulan'); // format YYYY-MM, opsional
 
   const supabase = supabaseAdmin();
-  // Lean select: order_items already contains product_name, qty, price, and hpp
+  // Lean select: order_items already contains product_name, qty, price, hpp, upah_kerja
   let query = supabase
     .from('orders')
-    .select('id, order_code, order_date, customer_name, total, dp, status_bayar, status_pesanan, order_items(product_name, qty, price, hpp)');
+    .select('id, order_code, order_date, customer_name, total, dp, status_bayar, status_pesanan, order_items(product_name, qty, price, hpp, upah_kerja)');
 
   if (bulan) {
     const start = `${bulan}-01`;
@@ -37,6 +37,7 @@ export async function GET(request) {
   let total_dp_masuk = 0;
   let piutang = 0;
   let total_hpp = 0;
+  let total_upah = 0;
 
   const produkMap = {};
 
@@ -51,6 +52,7 @@ export async function GET(request) {
 
     for (const it of o.order_items || []) {
       total_hpp += Number(it.hpp || 0);
+      total_upah += Number(it.upah_kerja || 0);
       const rawName = (it.product_name || '').trim();
       const key = rawName.toLowerCase();
       if (!produkMap[key]) {
@@ -63,7 +65,7 @@ export async function GET(request) {
     }
   }
 
-  const laba_kotor = total_omzet - total_hpp;
+  const laba_kotor = total_omzet - total_hpp - total_upah;
   const produk_terlaris = Object.values(produkMap).sort((a, b) => b.jumlah - a.jumlah);
 
   return NextResponse.json({
@@ -72,6 +74,7 @@ export async function GET(request) {
     total_dp_masuk,
     piutang,
     total_hpp,
+    total_upah,
     laba_kotor,
     produk_terlaris,
     orders: orderList,
