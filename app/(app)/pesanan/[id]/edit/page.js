@@ -37,6 +37,7 @@ export default function EditPesananPage() {
   const [openPicker, setOpenPicker] = useState(null);
   const [openTemplatePicker, setOpenTemplatePicker] = useState(null);
   const [templateSearch, setTemplateSearch] = useState('');
+  const [savingTplIdx, setSavingTplIdx] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -141,6 +142,45 @@ export default function EditPesananPage() {
     setTemplateSearch('');
   }
 
+  async function simpanKeKatalog(idx) {
+    const it = items[idx];
+    if (!it.product_name.trim()) {
+      alert('Isi nama produk dulu sebelum disimpan ke katalog');
+      return;
+    }
+    const rows = it.materials_used
+      .filter((mu) => mu.material_id && Number(mu.qty_used) > 0)
+      .map((mu) => ({ material_id: mu.material_id, qty_used: mu.qty_used }));
+    if (rows.length === 0) {
+      alert('Belum ada bahan yang dipilih di item ini');
+      return;
+    }
+    const tplName = window.prompt('Nama template di Katalog:', it.product_name);
+    if (!tplName || !tplName.trim()) return;
+
+    setSavingTplIdx(idx);
+    try {
+      const res = await fetch('/api/bouquet-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: tplName.trim(),
+          price: it.price,
+          materials_used: rows,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const tplData = await fetch('/api/bouquet-templates').then((r) => r.json());
+      setTemplates(tplData.templates || []);
+      alert('Template "' + tplName.trim() + '" berhasil disimpan ke Katalog');
+    } catch (err) {
+      alert('Gagal menyimpan ke katalog: ' + err.message);
+    } finally {
+      setSavingTplIdx(null);
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -228,6 +268,14 @@ export default function EditPesananPage() {
                     className="text-fleur-600 text-xs font-medium hover:underline"
                   >
                     Pilih dari Katalog
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => simpanKeKatalog(idx)}
+                    disabled={savingTplIdx === idx}
+                    className="text-fleur-600 text-xs font-medium hover:underline disabled:opacity-60"
+                  >
+                    {savingTplIdx === idx ? 'Menyimpan...' : 'Simpan ke Katalog'}
                   </button>
                   {openTemplatePicker === idx && (
                     <div
