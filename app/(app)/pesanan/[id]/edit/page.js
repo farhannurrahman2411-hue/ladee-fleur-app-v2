@@ -31,6 +31,7 @@ export default function EditPesananPage() {
   const [error, setError] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [orderDate, setOrderDate] = useState('');
+  const [dp, setDp] = useState(0);
   const [items, setItems] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -49,6 +50,7 @@ export default function EditPesananPage() {
         if (orderData.error) throw new Error(orderData.error);
         setCustomerName(orderData.order.customer_name);
         setOrderDate(orderData.order.order_date);
+        setDp(Number(orderData.order.dp) || 0);
         setItems((orderData.order.order_items || []).map(toItemState));
         setMaterials(matData.materials || []);
         setTemplates(tplData.templates || []);
@@ -58,6 +60,8 @@ export default function EditPesananPage() {
   }, [params.id]);
 
   const total = items.reduce((sum, it) => sum + Number(it.qty || 0) * Number(it.price || 0), 0);
+  const sisa = total - Number(dp || 0);
+  const statusBayar = Number(dp || 0) >= total && total > 0 ? 'LUNAS' : 'BELUM LUNAS';
 
   function itemHppBahan(it) {
     return it.materials_used.reduce((sum, mu) => {
@@ -212,6 +216,7 @@ export default function EditPesananPage() {
         body: JSON.stringify({
           customer_name: customerName,
           order_date: orderDate,
+          dp: Number(dp) || 0,
           items: itemsPayload,
         }),
       });
@@ -412,9 +417,33 @@ export default function EditPesananPage() {
           </button>
         </div>
 
-        <div className="flex flex-col justify-end">
-          <p className="text-sm text-gray-500">Total Pesanan</p>
-          <p className="text-lg font-bold text-fleur-700">{formatRupiah(total)}</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">DP (Uang Muka)</label>
+            <input
+              type="number"
+              min="0"
+              value={dp}
+              onChange={(e) => setDp(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+          </div>
+          <div className="flex flex-col justify-end">
+            <p className="text-sm text-gray-500">Total Pesanan</p>
+            <p className="text-lg font-bold text-fleur-700">{formatRupiah(total)}</p>
+          </div>
+        </div>
+
+        <div className="text-sm space-y-0.5">
+          <p>
+            Sisa pembayaran: <span className="font-medium">{formatRupiah(sisa > 0 ? sisa : 0)}</span>
+          </p>
+          <p>
+            Status bayar:{' '}
+            <span className={statusBayar === 'LUNAS' ? 'font-medium text-green-700' : 'font-medium text-yellow-700'}>
+              {statusBayar}
+            </span>
+          </p>
         </div>
 
         <div className="bg-fleur-50 rounded-lg p-3 text-sm space-y-0.5">
