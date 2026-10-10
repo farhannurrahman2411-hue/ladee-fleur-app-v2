@@ -178,14 +178,14 @@ export async function PATCH(request, { params }) {
         }
       }
 
-      updates.total = newTotal;
+        updates.total = newTotal;
       const { data: existing } = await supabase
         .from('orders')
         .select('dp')
         .eq('id', params.id)
         .single();
-      updates.status_bayar = Number(existing?.dp || 0) >= newTotal ? 'LUNAS' : 'BELUM LUNAS';
-    }
+      const dpNow = updates.dp !== undefined ? Number(updates.dp) : Number(existing?.dp || 0);
+      updates.status_bayar = dpNow >= newTotal ? 'LUNAS' : 'BELUM LUNAS';
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'Tidak ada perubahan' }, { status: 400 });
